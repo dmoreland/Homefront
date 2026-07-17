@@ -26,4 +26,4 @@ The production build serves from the `/Homefront/` base path (the repo name); lo
 
 ## License
 
-Released under the [MIT License](LICENSE).
+Released under the [MIT License](LICENSE.md).
