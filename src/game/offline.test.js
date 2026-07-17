@@ -39,4 +39,12 @@ describe("applyOffline", () => {
     const { elapsed } = applyOffline(g, now - daysAway, now, UK);
     expect(elapsed).toBe(OFFLINE_CAP_HOURS * 3600);
   });
+
+  it("raises the effective rate with the Automated Foundries doctrine", () => {
+    const g = mk({ owned: { mill: 1 } }); // 1 steel/sec
+    const now = 1_000_000;
+    const { game, rate } = applyOffline(g, now - 3600 * 1000, now, UK, { mods: { offlineRateAdd: 0.2 } });
+    expect(rate).toBeCloseTo(0.7); // 0.5 + 0.2
+    expect(game.res.steel).toBeCloseTo(3600 * 0.7);
+  });
 });

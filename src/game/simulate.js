@@ -1,18 +1,22 @@
 import { LINES } from "../data/gameData.js";
 
 // Pure simulation step — used by the live 250ms tick AND offline earnings.
-// Given a game state, a timestep dt (seconds), and the active nation config,
-// returns advanced resource/equipment stocks plus derived rates
-// (gen, net, upkeep, lineStatus, convStatus). Does NOT mutate the input.
+// Given a game state, a timestep dt (seconds), the active nation config, and an
+// optional doctrine `mods` bundle, returns advanced resource/equipment stocks
+// plus derived rates (gen, net, upkeep, lineStatus, convStatus). Does NOT
+// mutate the input. `mods` is optional; omitting it means no doctrine effects.
 //
 // Generation model (per resource):
 //   producers × count × civMult × theatreMult   (buildings)
 //   + passive trickle                            (flat, nation)
 //   + theatre flat rewards × stages              (flat)
+//   × doctrine genMult                           (War Economy branch)
 //   then converters (e.g. Synthetic Refinery) trade one resource for another,
 //   then production lines consume resources to make equipment. Converters and
 //   lines both throttle proportionally when their inputs are starved.
-export function simulate(s, dt, nation) {
+export function simulate(s, dt, nation, mods) {
+  const genMult = mods?.genMult || {};
+  const upkeepMult = mods?.upkeepMult || {};
   const res = { ...s.res };
   const eq = { ...s.eq };
 
@@ -50,10 +54,13 @@ export function simulate(s, dt, nation) {
   }
   gen.manpower = nation.manpowerBase * lawMult;
 
-  // Force upkeep (oil) from air wings / fleets.
+  // Doctrine War Economy multipliers apply to all base generation.
+  for (const r in gen) gen[r] *= genMult[r] ?? 1;
+
+  // Force upkeep (oil) from air wings / fleets, reduced by Sea doctrines.
   let upkeep = 0;
   for (const f of nation.forces) {
-    if (f.upkeep?.oil) upkeep += (s.forces[f.id] || 0) * f.upkeep.oil;
+    if (f.upkeep?.oil) upkeep += (s.forces[f.id] || 0) * f.upkeep.oil * (upkeepMult[f.id] ?? 1);
   }
 
   // Apply base generation to the stockpile (oil nets upkeep and clamps at 0).

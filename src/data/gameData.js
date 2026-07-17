@@ -32,5 +32,5 @@ export const FRESH = {
   nationId: null,
   res: { steel: 0, alu: 0, oil: 0, rubber: 0, manpower: 0 },
   eq: { rifles: 0, artillery: 0, tanks: 0, fighters: 0, ships: 0 },
-  owned: {}, upgrades: {}, forces: {}, stages: {}, missions: [], warScore: 0, taps: 0,
+  owned: {}, upgrades: {}, forces: {}, stages: {}, missions: [], warScore: 0, warTotal: 0, taps: 0,
 };

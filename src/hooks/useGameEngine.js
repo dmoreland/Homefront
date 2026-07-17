@@ -5,6 +5,7 @@ import { simulate } from "../game/simulate.js";
 import { resolveMissions } from "../game/missions.js";
 import { applyOffline, OFFLINE_RATE } from "../game/offline.js";
 import { theatreDuration } from "../game/theatres.js";
+import { computeMods, doctrinePoints, effectiveForceCost, effectiveNeed, totalVictory } from "../game/doctrines.js";
 import { canAfford, costOf } from "../game/economy.js";
 import { saveStore } from "../game/saveStore.js";
 import { fmt } from "../ui/format.js";
@@ -12,6 +13,7 @@ import { fmt } from "../ui/format.js";
 const TICK_MS = 250;
 const TICK_DT = 0.25;
 const AUTOSAVE_MS = 10000;
+const FRESH_DOCTRINES = { points: 0, purchased: {} };
 
 // Pay a cost out of a game state, drawing from resources or equipment as
 // appropriate for each key. Pure helper.
@@ -24,12 +26,13 @@ function pay(g, cost) {
   return { ...g, res, eq };
 }
 
-// The game engine: owns state, drives the tick/autosave/offline lifecycle,
-// and exposes player actions. When no nation is selected (nationId null) the
-// app shows the picker; selectNation starts a campaign. Keeps all impure
-// concerns (timers, storage, toasts) here so the game modules stay pure.
+// The game engine: owns campaign state AND cross-run doctrine state, drives the
+// tick/autosave/offline lifecycle, and exposes player actions. metaScreen
+// selects the between-runs view (picker vs doctrine HQ) when no nation is active.
 export function useGameEngine() {
   const [game, setGame] = useState(FRESH);
+  const [doctrines, setDoctrines] = useState(FRESH_DOCTRINES);
+  const [metaScreen, setMetaScreen] = useState("picker");
   const [toast, setToast] = useState(null);
   const [now, setNow] = useState(Date.now());
   const loadedRef = useRef(false);
@@ -37,6 +40,9 @@ export function useGameEngine() {
   gameRef.current = game;
 
   const nation = getNation(game.nationId);
+  const mods = useMemo(() => computeMods(doctrines.purchased), [doctrines]);
+  const modsRef = useRef(mods);
+  modsRef.current = mods;
 
   const say = useCallback((msg, ms = 3500) => {
     setToast(msg);
@@ -44,21 +50,28 @@ export function useGameEngine() {
   }, []);
 
   // Derived per-second rates for the UI (gen, net, upkeep, lineStatus, convStatus).
-  const sim = useMemo(() => (nation ? simulate(game, 1, nation) : null), [game, nation]);
+  const sim = useMemo(() => (nation ? simulate(game, 1, nation, mods) : null), [game, nation, mods]);
 
-  // Load save + resolve anything that happened while away (missions, offline production).
+  const canPrestige = nation ? totalVictory(game, nation) : false;
+  const prestigeAward = doctrinePoints(game.warTotal);
+
+  // Load doctrine (meta) save first, then any in-progress campaign.
   useEffect(() => {
     (async () => {
+      const savedDoctrines = await saveStore.loadDoctrines();
+      const doc = savedDoctrines || FRESH_DOCTRINES;
+      if (savedDoctrines) setDoctrines(savedDoctrines);
+
       const save = await saveStore.load();
       const savedNation = save && getNation(save.nationId);
       if (savedNation) {
         let g = { ...FRESH, ...save };
         const { game: resolved, completed } = resolveMissions(g, Date.now());
         g = resolved;
-        const off = applyOffline(g, save.savedAt, Date.now(), savedNation);
+        const off = applyOffline(g, save.savedAt, Date.now(), savedNation, { mods: computeMods(doc.purchased) });
         if (off.sim) {
           g = off.game;
-          say(`🏭 The home front kept working: +${fmt(off.sim.gen.steel * off.elapsed * OFFLINE_RATE)} steel while you were away`, 5000);
+          say(`🏭 The home front kept working: +${fmt(off.sim.gen.steel * off.elapsed * off.rate)} steel while you were away`, 5000);
         }
         if (completed.length) say(`🎖️ ${completed.length} theatre victor${completed.length > 1 ? "ies" : "y"} while you were away!`, 5000);
         setGame(g);
@@ -73,8 +86,8 @@ export function useGameEngine() {
       setNow(Date.now());
       setGame((g) => {
         const n = getNation(g.nationId);
-        if (!n) return g; // picker showing — nothing to simulate
-        const r = simulate(g, TICK_DT, n);
+        if (!n) return g; // between runs — nothing to simulate
+        const r = simulate(g, TICK_DT, n, modsRef.current);
         const advanced = { ...g, res: r.res, eq: r.eq };
         const { game: next, completed } = resolveMissions(advanced, Date.now());
         for (const m of completed) {
@@ -100,17 +113,22 @@ export function useGameEngine() {
     return () => { clearInterval(id); document.removeEventListener("visibilitychange", onHide); };
   }, []);
 
-  // ---------- Actions ----------
+  // ---------- Campaign actions ----------
   const selectNation = useCallback((id) => {
     const n = getNation(id);
-    if (n) setGame(newGame(n));
+    if (!n) return;
+    const g = newGame(n);
+    const res = { ...g.res };
+    for (const r in modsRef.current.startBonus) res[r] = (res[r] || 0) + modsRef.current.startBonus[r];
+    setGame({ ...g, res });
+    setMetaScreen("picker");
   }, []);
 
   const tap = useCallback(() => setGame((g) => {
     const n = getNation(g.nationId);
     if (!n) return g;
     const shift = n.upgrades.find((u) => u.tapMult && g.upgrades[u.id]);
-    const yielded = (n.tapBase || 2) * (shift ? shift.tapMult : 1);
+    const yielded = (n.tapBase || 2) * (shift ? shift.tapMult : 1) * modsRef.current.tapMult;
     return { ...g, res: { ...g.res, steel: g.res.steel + yielded }, taps: g.taps + 1 };
   }), []);
 
@@ -121,9 +139,10 @@ export function useGameEngine() {
   }), []);
 
   const recruit = useCallback((f) => setGame((g) => {
+    const cost = effectiveForceCost(f, modsRef.current);
     const stock = { ...g.eq, manpower: g.res.manpower };
-    if (!canAfford(stock, f.cost)) return g;
-    return { ...pay(g, f.cost), forces: { ...g.forces, [f.id]: (g.forces[f.id] || 0) + 1 } };
+    if (!canAfford(stock, cost)) return g;
+    return { ...pay(g, cost), forces: { ...g.forces, [f.id]: (g.forces[f.id] || 0) + 1 } };
   }), []);
 
   const buyUpgrade = useCallback((u) => setGame((g) => {
@@ -142,19 +161,52 @@ export function useGameEngine() {
     if (!n) return g;
     if (g.missions.some((m) => m.theatre === t.id)) return g;
     const stage = (g.stages[t.id] || 0) + 1;
-    const need = t.need(stage);
+    const need = effectiveNeed(t, stage, modsRef.current);
     for (const k in need) if ((g.forces[k] || 0) < need[k]) return g;
     const forces = { ...g.forces };
     for (const k in need) forces[k] -= need[k];
-    const dur = theatreDuration(t, stage, n, g.upgrades);
+    const dur = theatreDuration(t, stage, n, g.upgrades, modsRef.current);
     return { ...g, forces, missions: [...g.missions, { theatre: t.id, stage, forces: need, endsAt: Date.now() + dur * 1000 }] };
   }), []);
 
   const reset = useCallback(async () => {
     await saveStore.clear();
-    setGame(FRESH); // back to the nation picker
+    setGame(FRESH); // back to the nation picker (doctrines are kept)
+    setMetaScreen("picker");
     say("🗺️ Choose a nation to begin a new campaign");
   }, [say]);
 
-  return { game, nation, sim, now, toast, actions: { selectNation, tap, buyGen, recruit, buyUpgrade, launch, reset } };
+  // ---------- Prestige & doctrines ----------
+  const prestige = useCallback(() => {
+    const g = gameRef.current;
+    const n = getNation(g.nationId);
+    if (!n || !totalVictory(g, n)) return;
+    const award = doctrinePoints(g.warTotal);
+    setDoctrines((d) => {
+      const next = { points: d.points + award, purchased: d.purchased };
+      saveStore.saveDoctrines(next);
+      return next;
+    });
+    saveStore.clear();
+    setGame(FRESH);
+    setMetaScreen("hq");
+    say(`🏅 Total Victory! Prestiged for +${award} doctrine points`, 5000);
+  }, [say]);
+
+  const buyDoctrine = useCallback((node) => setDoctrines((d) => {
+    if (d.purchased[node.id]) return d;
+    if (node.req && !d.purchased[node.req]) return d;
+    if (d.points < node.cost) return d;
+    const next = { points: d.points - node.cost, purchased: { ...d.purchased, [node.id]: true } };
+    saveStore.saveDoctrines(next);
+    return next;
+  }), []);
+
+  const openDoctrines = useCallback(() => setMetaScreen("hq"), []);
+  const closeDoctrines = useCallback(() => setMetaScreen("picker"), []);
+
+  return {
+    game, nation, sim, now, toast, mods, doctrines, metaScreen, canPrestige, prestigeAward,
+    actions: { selectNation, tap, buyGen, recruit, buyUpgrade, launch, reset, prestige, buyDoctrine, openDoctrines, closeDoctrines },
+  };
 }

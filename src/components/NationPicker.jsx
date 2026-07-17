@@ -1,12 +1,16 @@
 // Campaign start screen: choose a nation. Each card shows the nation's era,
 // a one-line identity, and flavour. Selecting one starts a fresh campaign.
-export function NationPicker({ nations, onSelect }) {
+// Doctrine points (earned across runs) are shown with a link into Doctrine HQ.
+export function NationPicker({ nations, doctrinePoints = 0, onSelect, onOpenDoctrines }) {
   return (
     <div style={{ minHeight: "100vh", background: "#16222E", color: "#EDE6D3", fontFamily: "'Trebuchet MS','Segoe UI',sans-serif", paddingBottom: 32 }}>
       <div style={{ padding: "40px 16px 6px", textAlign: "center" }}>
         <div style={{ fontSize: 11, letterSpacing: 3, color: "#7E96AC", textTransform: "uppercase" }}>Ministry of War · Choose your nation</div>
         <h1 style={{ margin: "6px 0 0", fontSize: 30, letterSpacing: 1, color: "#D9B14B", fontWeight: 800 }}>HOME FRONT</h1>
         <div style={{ fontSize: 12, color: "#7E96AC", marginTop: 4 }}>Build a war economy. Each nation plays differently.</div>
+        <button onClick={onOpenDoctrines} style={{ marginTop: 12, padding: "8px 16px", fontSize: 12, fontWeight: 700, background: "#22344A", color: "#D9B14B", border: "1px solid #D9B14B66", borderRadius: 999, cursor: "pointer" }}>
+          🎖️ Doctrine HQ · {doctrinePoints} pt{doctrinePoints === 1 ? "" : "s"}
+        </button>
       </div>
 
       <div style={{ maxWidth: 560, margin: "18px auto 0", padding: "0 14px", display: "grid", gap: 12 }}>
