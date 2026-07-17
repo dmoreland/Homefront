@@ -1,6 +1,6 @@
 # Home Front — WW2 industrial idle game
 
-A Hearts of Iron 4-inspired idle/clicker. Currently v1: United Kingdom only, a React (Vite) app. Prototyped in Claude.ai as a single file, since split into pure game logic, a `useGameEngine` hook, and presentational components.
+A grand-strategy-inspired WW2 idle/clicker. Currently v1: United Kingdom only, a React (Vite) app. Prototyped in Claude.ai as a single file, since split into pure game logic, a `useGameEngine` hook, and presentational components.
 
 ## How to run
 ```
@@ -20,7 +20,7 @@ Deploy: GitHub Pages via `.github/workflows/deploy.yml` (static Vite build, no b
 - `src/App.jsx` — composition only.
 
 ## Core design
-Two-stage production chain (the HOI4 hook — resources do NOT buy units directly):
+Two-stage production chain (the grand-strategy hook — resources do NOT buy units directly):
 1. **Raw resources** (steel, aluminium, oil, rubber, manpower) from generators; UK gets a passive Empire trickle of +0.2 oil & rubber/sec.
 2. **Production lines** CONSUME resources per second to make equipment (rifles, artillery, tanks, fighters, warships). Lines throttle proportionally when starved and show STALLED %.
 3. **Forces** recruited from equipment + manpower: infantry/armoured divisions, air wings, fleets. Air & fleets have oil upkeep.
@@ -37,7 +37,7 @@ Two-stage production chain (the HOI4 hook — resources do NOT buy units directl
 ## Backlog (rough priority)
 1. **Country selection** — nation picker with real trade-offs: USA (weak start, monster late industry), USSR (manpower flood, poor factories), Germany (best mil output, oil/rubber starved → synthetic plants building), Japan (naval/air, steel-poor). Nations as data objects modifying base rates/costs/starting theatres.
 2. **Prestige: Total Victory** — win all theatres to stage N → reset, earn Doctrine points → permanent doctrine TREE with land/sea/air branches (not a flat multiplier). Restarting as a different country is the replay hook.
-3. **Oil deficit penalties** — running dry should slow active theatre timers (HOI4 fuel), not just stall shipyards.
+3. **Oil deficit penalties** — running dry should slow active theatre timers (a fuel mechanic), not just stall shipyards.
 4. More theatres (Eastern Front, Pacific, Normandy as late-game), equipment tiers (rifle → semi-auto), civilian factory construction-speed mechanic, sound, PWA manifest for home-screen install.
 
 ## Balance philosophy

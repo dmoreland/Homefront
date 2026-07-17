@@ -7,9 +7,9 @@
 
 ## 1. Overview
 
-Home Front is a WW2 industrial idle/clicker game inspired by Hearts of Iron 4. Players build a nation's war economy from a single foundry tap to a full military-industrial complex, then commit forces to historical theatres. The differentiator against generic idle games is a **two-stage production chain** — raw resources are converted by production lines into equipment over time, and scarcity forces real decisions — plus **nation asymmetry** as the replayability engine.
+Home Front is a WW2 industrial idle/clicker game inspired by grand strategy war games. Players build a nation's war economy from a single foundry tap to a full military-industrial complex, then commit forces to historical theatres. The differentiator against generic idle games is a **two-stage production chain** — raw resources are converted by production lines into equipment over time, and scarcity forces real decisions — plus **nation asymmetry** as the replayability engine.
 
-**Elevator pitch:** Cookie Clicker meets Hearts of Iron 4 — the strategic economy of a grand strategy game at the session length of an idle game.
+**Elevator pitch:** Cookie Clicker meets grand strategy — the strategic economy of a war game at the session length of an idle game.
 
 ## 2. Goals & non-goals
 
@@ -27,7 +27,7 @@ Home Front is a WW2 industrial idle/clicker game inspired by Hearts of Iron 4. P
 
 ## 3. Player profile
 
-Strategy-game players (HOI4, Factorio, Anno) who enjoy idle games as a second-screen or commute activity. Comfortable with resource ratios and production chains; bored by idle games with one currency. Session pattern: several short check-ins daily plus occasional long optimisation sessions.
+Strategy-game players (grand strategy war games, Factorio, Anno) who enjoy idle games as a second-screen or commute activity. Comfortable with resource ratios and production chains; bored by idle games with one currency. Session pattern: several short check-ins daily plus occasional long optimisation sessions.
 
 ## 4. Core loop
 

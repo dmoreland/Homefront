@@ -1,6 +1,6 @@
 # Home Front
 
-A WW2 industrial idle game inspired by Hearts of Iron 4. Build the British war economy: resources → production lines → equipment → divisions, wings and fleets → theatre victories.
+A WW2 industrial idle game inspired by grand strategy war games. Build the British war economy: resources → production lines → equipment → divisions, wings and fleets → theatre victories.
 
 Prototyped with Claude, developed with Claude Code. See CLAUDE.md for design and backlog.
 
@@ -9,6 +9,7 @@ Prototyped with Claude, developed with Claude Code. See CLAUDE.md for design and
 ```
 npm install
 npm run dev      # local dev server at http://localhost:5173/
+npm test         # run the unit + render tests (Vitest)
 npm run build    # production build to dist/
 npm run preview  # serve the production build locally
 ```
@@ -22,3 +23,7 @@ Deployment is automated via GitHub Actions (`.github/workflows/deploy.yml`): eve
 **One-time repo setup** (Settings → Pages): set **Source** to **GitHub Actions**. The workflow handles the rest.
 
 The production build serves from the `/Homefront/` base path (the repo name); local dev and preview stay at `/`. This is configured in `vite.config.js`.
+
+## License
+
+Released under the [MIT License](LICENSE).
