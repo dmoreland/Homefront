@@ -1,33 +1,96 @@
 import { LINES } from "../data/gameData.js";
 
 // Pure simulation step — used by the live 250ms tick AND offline earnings.
-// Given a game state and a timestep dt (seconds), returns the advanced
-// resource/equipment stocks plus derived rates (gen, net, upkeep, lineStatus).
-// Does NOT mutate the input state.
-export function simulate(s, dt) {
-  const civMult = 1 + 0.1 * (s.owned.civ || 0);
-  const lawMult = s.upgrades.law3 ? 8 : s.upgrades.law2 ? 4 : s.upgrades.law1 ? 2 : 1;
-  const bobMult = 1 + 0.15 * (s.stages.bob || 0);
+// Given a game state, a timestep dt (seconds), and the active nation config,
+// returns advanced resource/equipment stocks plus derived rates
+// (gen, net, upkeep, lineStatus, convStatus). Does NOT mutate the input.
+//
+// Generation model (per resource):
+//   producers × count × civMult × theatreMult   (buildings)
+//   + passive trickle                            (flat, nation)
+//   + theatre flat rewards × stages              (flat)
+//   then converters (e.g. Synthetic Refinery) trade one resource for another,
+//   then production lines consume resources to make equipment. Converters and
+//   lines both throttle proportionally when their inputs are starved.
+export function simulate(s, dt, nation) {
   const res = { ...s.res };
   const eq = { ...s.eq };
 
-  const gen = {
-    steel: (s.owned.mill || 0) * 1 * civMult * bobMult,
-    alu: (s.owned.smelter || 0) * 0.5 * civMult * bobMult,
-    oil: (s.owned.refinery || 0) * 0.5 * civMult + 0.2 + (s.stages.africa || 0) * 1 + (s.stages.atlantic || 0) * 0.5,
-    rubber: (s.owned.plantation || 0) * 0.4 * civMult + 0.2 + (s.stages.atlantic || 0) * 0.5,
-    manpower: 0.5 * lawMult,
-  };
-  const upkeep = (s.forces.air || 0) * 0.2 + (s.forces.fleet || 0) * 0.4;
+  // Civilian Factory: a generator with globalMult gives +mult per copy to all producers.
+  const civBuilding = nation.generators.find((g) => g.globalMult);
+  const civMult = 1 + (civBuilding ? civBuilding.globalMult * (s.owned[civBuilding.id] || 0) : 0);
 
+  // Conscription laws: the highest owned law sets the manpower multiplier.
+  let lawMult = 1;
+  for (const u of nation.upgrades) {
+    if (u.manpowerMult && s.upgrades[u.id]) lawMult = Math.max(lawMult, u.manpowerMult);
+  }
+
+  // Theatre output multipliers (e.g. Battle of Britain: +15% steel & alu per victory).
+  const mult = { steel: 1, alu: 1, oil: 1, rubber: 1, manpower: 1 };
+  for (const t of nation.theatres) {
+    const st = s.stages[t.id] || 0;
+    if (st && t.reward.kind === "mult") for (const r of t.reward.res) mult[r] *= 1 + t.reward.per * st;
+  }
+
+  // Base generation from producer buildings.
+  const gen = { steel: 0, alu: 0, oil: 0, rubber: 0, manpower: 0 };
+  for (const g of nation.generators) {
+    if (!g.produces) continue;
+    const n = s.owned[g.id] || 0;
+    if (!n) continue;
+    for (const r in g.produces) gen[r] += n * g.produces[r] * civMult * mult[r];
+  }
+  // Passive nation trickle (flat, not multiplied).
+  for (const r in nation.trickle) gen[r] += nation.trickle[r];
+  // Theatre flat rewards, per victory (e.g. +1 oil/sec per Eastern Front win).
+  for (const t of nation.theatres) {
+    const st = s.stages[t.id] || 0;
+    if (st && t.reward.kind === "flat") for (const r in t.reward.per) gen[r] += t.reward.per[r] * st;
+  }
+  gen.manpower = nation.manpowerBase * lawMult;
+
+  // Force upkeep (oil) from air wings / fleets.
+  let upkeep = 0;
+  for (const f of nation.forces) {
+    if (f.upkeep?.oil) upkeep += (s.forces[f.id] || 0) * f.upkeep.oil;
+  }
+
+  // Apply base generation to the stockpile (oil nets upkeep and clamps at 0).
   res.steel += gen.steel * dt;
   res.alu += gen.alu * dt;
   res.oil = Math.max(0, res.oil + (gen.oil - upkeep) * dt);
   res.rubber += gen.rubber * dt;
   res.manpower += gen.manpower * dt;
 
-  const lineStatus = {};
   const cons = { steel: 0, alu: 0, oil: 0, rubber: 0, manpower: 0 };
+
+  // Converters (Synthetic Refinery): consume inputs, produce output resources.
+  // Throttle by available input, and fold into gen/cons so net flow stays honest.
+  const convStatus = {};
+  for (const g of nation.generators) {
+    if (!g.converts) continue;
+    const n = s.owned[g.id] || 0;
+    if (!n) continue;
+    let frac = 1;
+    for (const k in g.converts.in) {
+      const need = g.converts.in[k] * n * dt;
+      frac = Math.min(frac, need > 0 ? res[k] / need : 1);
+    }
+    frac = Math.max(0, Math.min(1, frac));
+    for (const k in g.converts.in) {
+      res[k] -= g.converts.in[k] * n * dt * frac;
+      cons[k] += g.converts.in[k] * n * frac;
+    }
+    for (const k in g.converts.out) {
+      res[k] += g.converts.out[k] * n * dt * frac;
+      gen[k] += g.converts.out[k] * n * frac;
+    }
+    convStatus[g.id] = frac;
+  }
+
+  // Production lines: consume resources to make equipment, throttling when starved.
+  const lineStatus = {};
   for (const line of LINES) {
     const n = s.owned[line.id] || 0;
     if (!n) continue;
@@ -39,12 +102,13 @@ export function simulate(s, dt) {
     frac = Math.max(0, Math.min(1, frac));
     for (const k in line.cons) {
       res[k] -= line.cons[k] * n * dt * frac;
-      cons[k] += line.cons[k] * n * frac; // per-second rate at current throttle
+      cons[k] += line.cons[k] * n * frac;
     }
     eq[line.out] = (eq[line.out] || 0) + line.rate * n * dt * frac;
     lineStatus[line.id] = frac;
   }
-  // Net flow per resource — what the stockpile is actually doing
+
+  // Net flow per resource — what the stockpile is actually doing.
   const net = {
     steel: gen.steel - cons.steel,
     alu: gen.alu - cons.alu,
@@ -52,5 +116,5 @@ export function simulate(s, dt) {
     rubber: gen.rubber - cons.rubber,
     manpower: gen.manpower,
   };
-  return { res, eq, gen, net, upkeep, lineStatus };
+  return { res, eq, gen, net, upkeep, lineStatus, convStatus };
 }

@@ -1,6 +1,6 @@
 // Persistence adapter — tries window.storage (Claude artifact API) first,
 // then falls back to localStorage (deployed web build).
-const SAVE_KEY = "home-front-uk-save";
+const SAVE_KEY = "home-front-save";
 
 export const saveStore = {
   async load() {
