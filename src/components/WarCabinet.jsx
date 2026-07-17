@@ -1,15 +1,14 @@
-import { UPGRADES } from "../data/gameData.js";
 import { canAfford } from "../game/economy.js";
 import { costStr } from "../ui/format.js";
 import { S } from "../ui/styles.js";
 
-// Laws & upgrades bought with War Score or resources. Only shows upgrades that
-// are unowned and whose prerequisite (if any) is met.
-export function WarCabinet({ res, warScore, upgrades, onBuy }) {
+// Laws & upgrades for the active nation, bought with War Score or resources.
+// Only shows upgrades that are unowned and whose prerequisite (if any) is met.
+export function WarCabinet({ upgrades, res, warScore, owned, onBuy }) {
   return (
     <>
       <h2 style={S.h2}>War Cabinet · Laws & Upgrades</h2>
-      {UPGRADES.filter((u) => !upgrades[u.id] && (!u.req || upgrades[u.req])).map((u) => {
+      {upgrades.filter((u) => !owned[u.id] && (!u.req || owned[u.req])).map((u) => {
         const ok = u.ws ? warScore >= u.ws : canAfford(res, u.cost);
         return (
           <button key={u.id} onClick={() => onBuy(u)} disabled={!ok}

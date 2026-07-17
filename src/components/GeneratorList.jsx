@@ -1,13 +1,14 @@
-import { GENERATORS } from "../data/gameData.js";
 import { canAfford, costOf } from "../game/economy.js";
 import { costStr } from "../ui/format.js";
 import { S } from "../ui/styles.js";
 
-export function GeneratorList({ owned, res, onBuy }) {
+// Industry buildings for the active nation (producers, converters, and the
+// Civilian Factory global multiplier — all bought the same generic way).
+export function GeneratorList({ generators, owned, res, onBuy }) {
   return (
     <>
       <h2 style={S.h2}>Industry</h2>
-      {GENERATORS.map((item) => {
+      {generators.map((item) => {
         const n = owned[item.id] || 0;
         const cost = costOf(item.cost, n);
         const ok = canAfford(res, cost);

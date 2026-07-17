@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FRESH, THEATRES } from "../data/gameData.js";
+import { FRESH } from "../data/gameData.js";
+import { getNation, newGame } from "../data/nations.js";
 import { simulate } from "../game/simulate.js";
 import { resolveMissions } from "../game/missions.js";
 import { applyOffline, OFFLINE_RATE } from "../game/offline.js";
+import { theatreDuration } from "../game/theatres.js";
 import { canAfford, costOf } from "../game/economy.js";
 import { saveStore } from "../game/saveStore.js";
 import { fmt } from "../ui/format.js";
@@ -23,8 +25,9 @@ function pay(g, cost) {
 }
 
 // The game engine: owns state, drives the tick/autosave/offline lifecycle,
-// and exposes the player actions. Keeps all impure concerns (timers, storage,
-// toasts) here so simulate()/resolveMissions()/etc. stay pure and testable.
+// and exposes player actions. When no nation is selected (nationId null) the
+// app shows the picker; selectNation starts a campaign. Keeps all impure
+// concerns (timers, storage, toasts) here so the game modules stay pure.
 export function useGameEngine() {
   const [game, setGame] = useState(FRESH);
   const [toast, setToast] = useState(null);
@@ -33,23 +36,26 @@ export function useGameEngine() {
   const gameRef = useRef(game);
   gameRef.current = game;
 
+  const nation = getNation(game.nationId);
+
   const say = useCallback((msg, ms = 3500) => {
     setToast(msg);
     setTimeout(() => setToast(null), ms);
   }, []);
 
-  // Derived per-second rates for the UI (gen, net, upkeep, lineStatus).
-  const sim = useMemo(() => simulate(game, 1), [game]);
+  // Derived per-second rates for the UI (gen, net, upkeep, lineStatus, convStatus).
+  const sim = useMemo(() => (nation ? simulate(game, 1, nation) : null), [game, nation]);
 
   // Load save + resolve anything that happened while away (missions, offline production).
   useEffect(() => {
     (async () => {
       const save = await saveStore.load();
-      if (save) {
+      const savedNation = save && getNation(save.nationId);
+      if (savedNation) {
         let g = { ...FRESH, ...save };
         const { game: resolved, completed } = resolveMissions(g, Date.now());
         g = resolved;
-        const off = applyOffline(g, save.savedAt, Date.now());
+        const off = applyOffline(g, save.savedAt, Date.now(), savedNation);
         if (off.sim) {
           g = off.game;
           say(`🏭 The home front kept working: +${fmt(off.sim.gen.steel * off.elapsed * OFFLINE_RATE)} steel while you were away`, 5000);
@@ -66,11 +72,13 @@ export function useGameEngine() {
     const id = setInterval(() => {
       setNow(Date.now());
       setGame((g) => {
-        const r = simulate(g, TICK_DT);
+        const n = getNation(g.nationId);
+        if (!n) return g; // picker showing — nothing to simulate
+        const r = simulate(g, TICK_DT, n);
         const advanced = { ...g, res: r.res, eq: r.eq };
         const { game: next, completed } = resolveMissions(advanced, Date.now());
         for (const m of completed) {
-          const t = THEATRES.find((t) => t.id === m.theatre);
+          const t = n.theatres.find((t) => t.id === m.theatre);
           setTimeout(() => say(`🎖️ Victory in the ${t.name}! +${m.stage} War Score`), 0);
         }
         return next;
@@ -82,10 +90,10 @@ export function useGameEngine() {
   // Autosave on an interval and when the tab is hidden.
   useEffect(() => {
     const id = setInterval(() => {
-      if (loadedRef.current) saveStore.save({ ...gameRef.current, savedAt: Date.now() });
+      if (loadedRef.current && gameRef.current.nationId) saveStore.save({ ...gameRef.current, savedAt: Date.now() });
     }, AUTOSAVE_MS);
     const onHide = () => {
-      if (loadedRef.current && document.visibilityState === "hidden")
+      if (loadedRef.current && gameRef.current.nationId && document.visibilityState === "hidden")
         saveStore.save({ ...gameRef.current, savedAt: Date.now() });
     };
     document.addEventListener("visibilitychange", onHide);
@@ -93,11 +101,18 @@ export function useGameEngine() {
   }, []);
 
   // ---------- Actions ----------
-  const tap = useCallback(() => setGame((g) => ({
-    ...g,
-    res: { ...g.res, steel: g.res.steel + (g.upgrades.shift ? 6 : 2) },
-    taps: g.taps + 1,
-  })), []);
+  const selectNation = useCallback((id) => {
+    const n = getNation(id);
+    if (n) setGame(newGame(n));
+  }, []);
+
+  const tap = useCallback(() => setGame((g) => {
+    const n = getNation(g.nationId);
+    if (!n) return g;
+    const shift = n.upgrades.find((u) => u.tapMult && g.upgrades[u.id]);
+    const yielded = (n.tapBase || 2) * (shift ? shift.tapMult : 1);
+    return { ...g, res: { ...g.res, steel: g.res.steel + yielded }, taps: g.taps + 1 };
+  }), []);
 
   const buyGen = useCallback((item) => setGame((g) => {
     const cost = costOf(item.cost, g.owned[item.id] || 0);
@@ -123,22 +138,23 @@ export function useGameEngine() {
   }), []);
 
   const launch = useCallback((t) => setGame((g) => {
+    const n = getNation(g.nationId);
+    if (!n) return g;
     if (g.missions.some((m) => m.theatre === t.id)) return g;
     const stage = (g.stages[t.id] || 0) + 1;
     const need = t.need(stage);
     for (const k in need) if ((g.forces[k] || 0) < need[k]) return g;
     const forces = { ...g.forces };
     for (const k in need) forces[k] -= need[k];
-    let dur = t.dur * Math.pow(1.3, stage - 1);
-    if (g.upgrades.radar && (t.air || t.naval)) dur *= 0.75;
+    const dur = theatreDuration(t, stage, n, g.upgrades);
     return { ...g, forces, missions: [...g.missions, { theatre: t.id, stage, forces: need, endsAt: Date.now() + dur * 1000 }] };
   }), []);
 
   const reset = useCallback(async () => {
     await saveStore.clear();
-    setGame(FRESH);
-    say("🇬🇧 A fresh mobilisation begins");
+    setGame(FRESH); // back to the nation picker
+    say("🗺️ Choose a nation to begin a new campaign");
   }, [say]);
 
-  return { game, sim, now, toast, actions: { tap, buyGen, recruit, buyUpgrade, launch, reset } };
+  return { game, nation, sim, now, toast, actions: { selectNation, tap, buyGen, recruit, buyUpgrade, launch, reset } };
 }

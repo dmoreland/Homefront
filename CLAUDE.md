@@ -1,6 +1,6 @@
 # Home Front — WW2 industrial idle game
 
-A grand-strategy-inspired WW2 idle/clicker. Currently v1: United Kingdom only, a React (Vite) app. Prototyped in Claude.ai as a single file, since split into pure game logic, a `useGameEngine` hook, and presentational components.
+A grand-strategy-inspired WW2 idle/clicker. A React (Vite) app with a nation picker — currently United Kingdom and Germany. Prototyped in Claude.ai as a single file, since split into pure game logic, a `useGameEngine` hook, and presentational components.
 
 ## How to run
 ```
@@ -12,12 +12,16 @@ npm run build   # production build
 Deploy: GitHub Pages via `.github/workflows/deploy.yml` (static Vite build, no backend); live at https://dmoreland.github.io/Homefront/.
 
 ## Project layout
-- `src/data/gameData.js` — all balance tables (GENERATORS, LINES, FORCES, THEATRES, UPGRADES, RES, FRESH).
-- `src/game/` — pure, unit-tested logic: `simulate.js` (the game step), `economy.js` (cost scaling/affordability), `missions.js` (theatre resolution), `offline.js` (offline earnings), `saveStore.js` (persistence adapter). Co-located `*.test.js` files.
-- `src/hooks/useGameEngine.js` — owns state and the impure lifecycle (tick, autosave, load/offline, actions). The one place timers/storage/toasts live.
-- `src/components/` — presentational pieces (Scene, ResourceBar, GeneratorList, ProductionLines, ForcesList, Theatres, WarCabinet, Foundry, Header, Footer, Toast).
+- `src/data/gameData.js` — shared tables (RES, LINES, FRESH). Universal across nations.
+- `src/data/nations.js` — the `NATIONS` config array (UK, Germany) + `getNation`/`newGame`. Each nation is a data object: starting resources, passive trickle, generators (incl. unique buildings like the Synthetic Refinery), forces, theatres, and upgrades. **Adding a nation is a config change here.**
+- `src/game/` — pure, unit-tested logic: `simulate.js` (the nation-parameterised game step), `economy.js` (cost scaling/affordability), `missions.js` (theatre resolution), `offline.js` (offline earnings), `theatres.js` (`theatreDuration`), `saveStore.js` (persistence adapter). Co-located `*.test.js` files.
+- `src/hooks/useGameEngine.js` — owns state and the impure lifecycle (tick, autosave, load/offline, actions, nation selection). The one place timers/storage/toasts live.
+- `src/components/` — presentational pieces: `NationPicker` (start screen), `GameView` (active campaign composition), and the panels (Scene, ResourceBar, GeneratorList, ProductionLines, ForcesList, Theatres, WarCabinet, Foundry, Header, Footer, Toast).
 - `src/ui/` — shared `format.js` (fmt, costStr) and `styles.js`.
-- `src/App.jsx` — composition only.
+- `src/App.jsx` — picks NationPicker vs GameView, mounts the toast.
+
+## Nation config model
+`simulate(state, dt, nation)` and the actions read everything from the active nation object, so nations are pure data. Key shapes (see `nations.js` header comment): generators use `produces` (scaled by civ & theatre multipliers), `globalMult` (Civilian Factory), or `converts` (Synthetic Refinery: throttles like a production line, trading steel for oil/rubber). Theatre rewards are `{ kind: "mult", res, per }` or `{ kind: "flat", per }` applied per victory. Laws carry `manpowerMult`, speed upgrades `speeds`+`factor`, the foundry upgrade `tapMult`. Force slots (inf/arm/air/fleet) and equipment keys are stable across nations; only names/costs differ. Germany's identity: strong steel, no colonial trickle, oil/rubber only via Synthetic Refineries or seized in theatres; forces are the three service branches (Wehrmacht/Panzer, Luftwaffe, Kriegsmarine) — no SS/political units.
 
 ## Core design
 Two-stage production chain (the grand-strategy hook — resources do NOT buy units directly):
@@ -28,14 +32,14 @@ Two-stage production chain (the grand-strategy hook — resources do NOT buy uni
 5. **War Score** is spent in the War Cabinet: conscription laws (manpower ×2/×4/×8), Radar (air/naval ops 25% faster).
 
 ## Architecture notes
-- `simulate(state, dt)` (in `src/game/simulate.js`) is the PURE game step — used by the 250ms tick AND offline earnings (50% rate, 8h cap). Keep it pure; all balance lives in the data tables in `src/data/gameData.js`. Mission and offline resolution are likewise pure (`game/missions.js`, `game/offline.js`) and unit-tested.
+- `simulate(state, dt, nation)` (in `src/game/simulate.js`) is the PURE game step — used by the 250ms tick AND offline earnings (50% rate, 8h cap). Keep it pure; all balance lives in the nation configs in `src/data/nations.js` (and the shared LINES in `gameData.js`). Mission and offline resolution are likewise pure (`game/missions.js`, `game/offline.js`) and unit-tested.
 - Resource bar shows NET flow (gen − line consumption − upkeep); deficit cards go red with ▼. Consumption is measured at current throttle, so a fully stalled line under-reports its theoretical demand.
 - Missions store absolute `endsAt` timestamps → they complete correctly across offline periods; resolved on load and in tick.
-- Persistence: `saveStore` adapter tries `window.storage` (Claude artifact API) then falls back to `localStorage` (deployed web). Save key `home-front-uk-save`. Autosave 10s + visibilitychange.
+- Persistence: `saveStore` adapter tries `window.storage` (Claude artifact API) then falls back to `localStorage` (deployed web). Save key `home-front-save`; the save carries `nationId`, so load resumes that nation (or shows the picker if none). Autosave 10s + visibilitychange.
 - Scene is inline SVG: factories appear with industry, Spitfires with air wings, fleet in the Channel; SMIL animation (animateMotion/animate).
 
 ## Backlog (rough priority)
-1. **Country selection** — nation picker with real trade-offs: USA (weak start, monster late industry), USSR (manpower flood, poor factories), Germany (best mil output, oil/rubber starved → synthetic plants building), Japan (naval/air, steel-poor). Nations as data objects modifying base rates/costs/starting theatres.
+1. **Country selection** — nation picker with real trade-offs. **Done: UK + Germany** (Germany = strong industry, synthetic fuel). Remaining nations as config additions in `nations.js`: USA (weak start, monster late industry), USSR (manpower flood, poor factories), Japan (naval/air, steel-poor).
 2. **Prestige: Total Victory** — win all theatres to stage N → reset, earn Doctrine points → permanent doctrine TREE with land/sea/air branches (not a flat multiplier). Restarting as a different country is the replay hook.
 3. **Oil deficit penalties** — running dry should slow active theatre timers (a fuel mechanic), not just stall shipyards.
 4. More theatres (Eastern Front, Pacific, Normandy as late-game), equipment tiers (rifle → semi-auto), civilian factory construction-speed mechanic, sound, PWA manifest for home-screen install.
