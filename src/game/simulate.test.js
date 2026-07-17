@@ -118,6 +118,26 @@ describe("simulate — Germany identity", () => {
   });
 });
 
+describe("simulate — doctrine mods", () => {
+  it("boosts resource generation by the genMult bundle", () => {
+    const mods = { genMult: { steel: 1.15, alu: 1, oil: 1, rubber: 1, manpower: 1 } };
+    const r = simulate(mk({ owned: { mill: 1 } }), 1, UK, mods);
+    expect(r.gen.steel).toBeCloseTo(1.15); // 1 * 1.15
+  });
+
+  it("reduces oil upkeep by the upkeepMult bundle", () => {
+    const mods = { upkeepMult: { air: 1, fleet: 0.5 } };
+    const r = simulate(mk({ forces: { fleet: 1 } }), 1, UK, mods);
+    expect(r.upkeep).toBeCloseTo(0.2); // 0.4 * 0.5
+  });
+
+  it("behaves identically to no mods when passed the identity bundle", () => {
+    const base = simulate(mk({ owned: { mill: 2, refinery: 1 } }), 1, UK);
+    const withId = simulate(mk({ owned: { mill: 2, refinery: 1 } }), 1, UK, { genMult: {}, upkeepMult: {} });
+    expect(withId.gen).toEqual(base.gen);
+  });
+});
+
 describe("simulate — purity", () => {
   it("does not mutate the input state", () => {
     const s = mk({ owned: { mill: 1, rifleLine: 1 }, res: { steel: 5 } });

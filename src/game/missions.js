@@ -10,11 +10,13 @@ export function resolveMissions(game, nowMs) {
   const stages = { ...game.stages };
   const forces = { ...game.forces };
   let warScore = game.warScore;
+  let warTotal = game.warTotal || 0; // cumulative earned this run — drives prestige payout
   for (const m of done) {
     stages[m.theatre] = (stages[m.theatre] || 0) + 1;
     warScore += m.stage;
+    warTotal += m.stage;
     for (const k in m.forces) forces[k] = (forces[k] || 0) + m.forces[k];
   }
   const missions = (game.missions || []).filter((m) => m.endsAt > nowMs);
-  return { game: { ...game, stages, forces, warScore, missions }, completed: done };
+  return { game: { ...game, stages, forces, warScore, warTotal, missions }, completed: done };
 }

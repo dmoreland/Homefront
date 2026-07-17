@@ -15,13 +15,22 @@ describe("resolveMissions", () => {
   });
 
   it("grants a stage, War Score, and returns committed forces on completion", () => {
-    const g = { ...base(), forces: { air: 1 }, warScore: 3, missions: [{ theatre: "bob", stage: 2, forces: { air: 4 }, endsAt: 1000 }] };
+    const g = { ...base(), forces: { air: 1 }, warScore: 3, warTotal: 3, missions: [{ theatre: "bob", stage: 2, forces: { air: 4 }, endsAt: 1000 }] };
     const { game, completed } = resolveMissions(g, 2000);
     expect(completed).toHaveLength(1);
     expect(game.stages.bob).toBe(1);
     expect(game.warScore).toBe(5); // 3 + stage 2
+    expect(game.warTotal).toBe(5); // cumulative, drives prestige payout
     expect(game.forces.air).toBe(5); // 1 held + 4 returned
     expect(game.missions).toEqual([]);
+  });
+
+  it("accumulates warTotal independently of spent War Score", () => {
+    // warScore already spent down to 0, but warTotal keeps the lifetime tally.
+    const g = { ...base(), warScore: 0, warTotal: 6, missions: [{ theatre: "bob", stage: 3, forces: {}, endsAt: 1000 }] };
+    const { game } = resolveMissions(g, 2000);
+    expect(game.warScore).toBe(3);
+    expect(game.warTotal).toBe(9);
   });
 
   it("resolves only finished missions and leaves ongoing ones", () => {

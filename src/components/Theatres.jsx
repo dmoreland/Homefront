@@ -1,23 +1,24 @@
 import { theatreDuration } from "../game/theatres.js";
+import { effectiveNeed } from "../game/doctrines.js";
 import { S } from "../ui/styles.js";
 
 // Timed operations for the active nation: commit forces, watch the progress
 // bar, collect the victory. `now` drives the countdown; the engine resolves
-// completion on the tick.
-export function Theatres({ nation, stages, missions, forces, upgrades, now, onLaunch }) {
+// completion on the tick. Requirements/durations reflect doctrine mods.
+export function Theatres({ nation, stages, missions, forces, upgrades, mods, now, onLaunch }) {
   const forceName = (id) => nation.forces.find((f) => f.id === id)?.name || id;
   return (
     <>
       <h2 style={S.h2}>Theatres of War</h2>
       {nation.theatres.map((t) => {
         const stage = (stages[t.id] || 0) + 1;
-        const need = t.need(stage);
+        const need = effectiveNeed(t, stage, mods);
         const active = missions.find((m) => m.theatre === t.id);
         const ready = !active && Object.keys(need).every((k) => (forces[k] || 0) >= need[k]);
         const needStr = Object.entries(need).map(([k, v]) => `${v}× ${forceName(k)}`).join(" + ");
         let pct = 0;
         if (active) {
-          const total = theatreDuration(t, active.stage, nation, upgrades) * 1000;
+          const total = theatreDuration(t, active.stage, nation, upgrades, mods) * 1000;
           pct = Math.min(100, Math.max(0, (1 - (active.endsAt - now) / total) * 100));
         }
         return (
