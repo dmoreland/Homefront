@@ -37,7 +37,7 @@ export const NATIONS = [
       { id: "smelter", name: "Aluminium Smelter", desc: "+0.5 aluminium/sec", cost: { steel: 60 }, produces: { alu: 0.5 } },
       { id: "refinery", name: "Oil Refinery", desc: "+0.5 oil/sec", cost: { steel: 140 }, produces: { oil: 0.5 } },
       { id: "plantation", name: "Colonial Plantation", desc: "+0.4 rubber/sec", cost: { steel: 120, oil: 20 }, produces: { rubber: 0.4 } },
-      { id: "civ", name: "Civilian Factory", desc: "+10% all resource output", cost: { steel: 400 }, globalMult: 0.1 },
+      { id: "civ", name: "Civilian Factory", desc: "+10% all resource output", cost: { steel: 200 }, globalMult: 0.1 },
     ],
     forces: [
       { id: "inf", name: "Infantry Division", icon: "🪖", cost: { rifles: 40, artillery: 10, manpower: 80 } },
@@ -46,12 +46,15 @@ export const NATIONS = [
       { id: "fleet", name: "Fleet", icon: "⚓", cost: { ships: 5, manpower: 60 }, upkeep: { oil: 0.4 } },
     ],
     theatres: [
-      { id: "bob", name: "Battle of Britain", icon: "✈️", dur: 90, air: true, need: (st) => ({ air: 2 * st }), reward: { kind: "mult", res: ["steel", "alu"], per: 0.15 }, rewardText: "+15% steel & aluminium output per victory" },
+      { id: "bob", name: "Battle of Britain", icon: "✈️", dur: 90, air: true, need: (st) => ({ air: 2 * st }), reward: { kind: "mult", res: ["alu"], per: 0.15 }, rewardText: "+15% aluminium output (aircraft plants) per victory" },
       { id: "atlantic", name: "Battle of the Atlantic", icon: "⚓", dur: 120, naval: true, need: (st) => ({ fleet: 2 * st }), reward: { kind: "flat", per: { oil: 0.5, rubber: 0.5 } }, rewardText: "+0.5 oil & rubber/sec convoys per victory" },
       { id: "africa", name: "North Africa", icon: "🏜️", dur: 150, need: (st) => ({ inf: 3 * st, arm: 1 * st }), reward: { kind: "flat", per: { oil: 1 } }, rewardText: "+1 oil/sec Middle East fields per victory" },
     ],
     upgrades: [
       { id: "shift", name: "Shift Work", desc: "Foundry taps produce 3× steel", cost: { steel: 300 }, tapMult: 3 },
+      { id: "ind1", name: "War Production Board", desc: "Steel output +25%", cost: { steel: 350 }, outputMult: { res: "steel", mult: 1.25 } },
+      { id: "ind2", name: "Heavy Industry", desc: "Steel output +40% more", cost: { steel: 1400 }, req: "ind1", outputMult: { res: "steel", mult: 1.4 } },
+      { id: "ind3", name: "Total War Production", desc: "All resource output +25%", cost: { steel: 5000 }, req: "ind2", outputMult: { res: "all", mult: 1.25 } },
       { id: "radar", name: "Radar Network", desc: "Air & naval theatres resolve 25% faster", ws: 3, speeds: ["air", "naval"], factor: 0.75 },
       { id: "law1", name: "Limited Conscription", desc: "Manpower growth ×2", ws: 2, manpowerMult: 2 },
       { id: "law2", name: "Extensive Conscription", desc: "Manpower growth ×4", ws: 6, req: "law1", manpowerMult: 4 },
@@ -73,7 +76,7 @@ export const NATIONS = [
       { id: "smelter", name: "Aluminium Plant", desc: "+0.5 aluminium/sec", cost: { steel: 60 }, produces: { alu: 0.5 } },
       { id: "refinery", name: "Domestic Oil Well", desc: "+0.3 oil/sec (oil-poor)", cost: { steel: 140 }, produces: { oil: 0.3 } },
       { id: "synth", name: "Synthetic Refinery", desc: "Converts 2 steel/sec → 0.4 oil + 0.35 rubber/sec", cost: { steel: 180 }, converts: { in: { steel: 2 }, out: { oil: 0.4, rubber: 0.35 } } },
-      { id: "civ", name: "Civilian Factory", desc: "+10% all resource output", cost: { steel: 400 }, globalMult: 0.1 },
+      { id: "civ", name: "Civilian Factory", desc: "+10% all resource output", cost: { steel: 200 }, globalMult: 0.1 },
     ],
     forces: [
       { id: "inf", name: "Wehrmacht Infantry", icon: "🪖", cost: { rifles: 40, artillery: 10, manpower: 80 } },
@@ -82,12 +85,15 @@ export const NATIONS = [
       { id: "fleet", name: "Kriegsmarine Fleet", icon: "⚓", cost: { ships: 5, manpower: 60 }, upkeep: { oil: 0.4 } },
     ],
     theatres: [
-      { id: "fallgelb", name: "Fall Gelb", icon: "⚔️", dur: 90, air: true, need: (st) => ({ inf: 2 * st, arm: 1 * st, air: 1 * st }), reward: { kind: "mult", res: ["steel", "alu"], per: 0.12 }, rewardText: "+12% steel & aluminium (captured industry) per victory" },
+      { id: "fallgelb", name: "Fall Gelb", icon: "⚔️", dur: 90, air: true, need: (st) => ({ inf: 2 * st, arm: 1 * st, air: 1 * st }), reward: { kind: "mult", res: ["alu"], per: 0.15 }, rewardText: "+15% aluminium output (captured aircraft industry) per victory" },
       { id: "east", name: "Eastern Front", icon: "❄️", dur: 180, need: (st) => ({ inf: 4 * st, arm: 2 * st }), reward: { kind: "flat", per: { oil: 1 } }, rewardText: "+1 oil/sec (Caucasus fields) per victory" },
       { id: "uboat", name: "Atlantic U-boats", icon: "⚓", dur: 120, naval: true, need: (st) => ({ fleet: 2 * st }), reward: { kind: "flat", per: { oil: 0.3, rubber: 0.4 } }, rewardText: "+0.3 oil & +0.4 rubber/sec (raided convoys) per victory" },
     ],
     upgrades: [
       { id: "shift", name: "War Economy", desc: "Foundry taps produce 3× steel", cost: { steel: 300 }, tapMult: 3 },
+      { id: "ind1", name: "Ruhr Expansion", desc: "Steel output +25%", cost: { steel: 350 }, outputMult: { res: "steel", mult: 1.25 } },
+      { id: "ind2", name: "Heavy Industry Drive", desc: "Steel output +40% more", cost: { steel: 1400 }, req: "ind1", outputMult: { res: "steel", mult: 1.4 } },
+      { id: "ind3", name: "Total Industrial Mobilisation", desc: "All resource output +25%", cost: { steel: 5000 }, req: "ind2", outputMult: { res: "all", mult: 1.25 } },
       { id: "radar", name: "Freya Radar", desc: "Air & naval theatres resolve 25% faster", ws: 3, speeds: ["air", "naval"], factor: 0.75 },
       { id: "law1", name: "Conscription Act", desc: "Manpower growth ×2", ws: 2, manpowerMult: 2 },
       { id: "law2", name: "Extended Service", desc: "Manpower growth ×4", ws: 6, req: "law1", manpowerMult: 4 },

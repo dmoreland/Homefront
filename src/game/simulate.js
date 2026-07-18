@@ -30,6 +30,16 @@ export function simulate(s, dt, nation, mods) {
     if (u.manpowerMult && s.upgrades[u.id]) lawMult = Math.max(lawMult, u.manpowerMult);
   }
 
+  // In-run industry upgrades (War Cabinet): per-resource output multipliers,
+  // stacking multiplicatively. This is the main non-theatre steel scaling lever.
+  const upgradeMult = { steel: 1, alu: 1, oil: 1, rubber: 1, manpower: 1 };
+  for (const u of nation.upgrades) {
+    if (u.outputMult && s.upgrades[u.id]) {
+      const keys = u.outputMult.res === "all" ? Object.keys(upgradeMult) : [].concat(u.outputMult.res);
+      for (const r of keys) upgradeMult[r] *= u.outputMult.mult;
+    }
+  }
+
   // Theatre output multipliers (e.g. Battle of Britain: +15% steel & alu per victory).
   const mult = { steel: 1, alu: 1, oil: 1, rubber: 1, manpower: 1 };
   for (const t of nation.theatres) {
@@ -43,7 +53,7 @@ export function simulate(s, dt, nation, mods) {
     if (!g.produces) continue;
     const n = s.owned[g.id] || 0;
     if (!n) continue;
-    for (const r in g.produces) gen[r] += n * g.produces[r] * civMult * mult[r];
+    for (const r in g.produces) gen[r] += n * g.produces[r] * civMult * mult[r] * upgradeMult[r];
   }
   // Passive nation trickle (flat, not multiplied).
   for (const r in nation.trickle) gen[r] += nation.trickle[r];

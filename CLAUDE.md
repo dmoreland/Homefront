@@ -28,8 +28,8 @@ Two-stage production chain (the grand-strategy hook — resources do NOT buy uni
 1. **Raw resources** (steel, aluminium, oil, rubber, manpower) from generators; UK gets a passive Empire trickle of +0.2 oil & rubber/sec.
 2. **Production lines** CONSUME resources per second to make equipment (rifles, artillery, tanks, fighters, warships). Lines throttle proportionally when starved and show STALLED %.
 3. **Forces** recruited from equipment + manpower: infantry/armoured divisions, air wings, fleets. Air & fleets have oil upkeep.
-4. **Theatres** (Battle of Britain / Atlantic / North Africa): commit forces to timed operations. Victory returns forces, grants stacking resource bonuses + War Score. Stage requirements scale ×2 per victory, duration ×1.3.
-5. **War Score** is spent in the War Cabinet: conscription laws (manpower ×2/×4/×8), Radar (air/naval ops 25% faster).
+4. **Theatres** (e.g. Battle of Britain / Atlantic / North Africa): commit forces to timed operations. Victory returns forces, grants stacking oil/rubber/aluminium bonuses + War Score. Stage requirements scale ×2 per victory, duration ×1.3. **No theatre boosts steel** — steel scaling is industry-driven (below), so no single theatre is a must-rush.
+5. **War Cabinet** upgrades: resource-bought **Industry** tiers (steel output ×, the main in-run steel scaling lever, decoupled from theatres), plus War-Score-bought conscription laws (manpower ×2/×4/×8) and Radar (air/naval ops 25% faster). The Civilian Factory (generator) is the repeatable +10%-all multiplier.
 6. **Prestige & doctrines** (cross-run, shared across nations): reach Total Victory (every theatre at Stage 3+) to prestige — bank Doctrine Points (`floor(1.5·√warTotal)`), wipe the campaign, return to the picker. Points buy permanent nodes in the Doctrine HQ across four branches — **War Economy** (resource output, starting stockpile, offline rate), Land, Sea, Air. Config in `src/data/doctrines.js`; effects aggregate into a `mods` bundle (`src/game/doctrines.js`).
 
 ## Architecture notes

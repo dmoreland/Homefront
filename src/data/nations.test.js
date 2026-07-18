@@ -43,6 +43,15 @@ describe("nation configs", () => {
     }
   });
 
+  it("no theatre reward boosts steel — steel scaling is industry-driven, not theatre-locked", () => {
+    for (const n of NATIONS) {
+      for (const t of n.theatres) {
+        if (t.reward.kind === "mult") expect(t.reward.res).not.toContain("steel");
+        if (t.reward.kind === "flat") expect(Object.keys(t.reward.per)).not.toContain("steel");
+      }
+    }
+  });
+
   it("force costs reference real equipment or manpower", () => {
     const valid = new Set([...EQ_KEYS, "manpower"]);
     for (const n of NATIONS) {
