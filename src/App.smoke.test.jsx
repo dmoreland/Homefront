@@ -58,6 +58,15 @@ describe("GameView smoke render — Germany", () => {
     expect(html2).toContain("TOTAL VICTORY");
     expect(html2).toContain("PRESTIGE");
   });
+
+  it("shows the fuel-shortage warning on an active air/naval op only when starved", () => {
+    const withOp = { ...game, missions: [{ theatre: "uboat", stage: 1, forces: { fleet: 2 }, endsAt: Date.now() + 60_000 }] };
+    const render = (starved) => renderToStaticMarkup(
+      <GameView nation={nation} game={withOp} sim={simulate(withOp, 1, nation, mods)} mods={mods} now={Date.now()} canPrestige={false} prestigeAward={0} fuelStarved={starved} actions={actions} />,
+    );
+    expect(render(true)).toContain("Fuel shortage");
+    expect(render(false)).not.toContain("Fuel shortage");
+  });
 });
 
 describe("DoctrineHQ smoke render", () => {

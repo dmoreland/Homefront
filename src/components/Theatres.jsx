@@ -5,7 +5,7 @@ import { S } from "../ui/styles.js";
 // Timed operations for the active nation: commit forces, watch the progress
 // bar, collect the victory. `now` drives the countdown; the engine resolves
 // completion on the tick. Requirements/durations reflect doctrine mods.
-export function Theatres({ nation, stages, missions, forces, upgrades, mods, now, onLaunch }) {
+export function Theatres({ nation, stages, missions, forces, upgrades, mods, fuelStarved, now, onLaunch }) {
   const forceName = (id) => nation.forces.find((f) => f.id === id)?.name || id;
   return (
     <>
@@ -34,6 +34,9 @@ export function Theatres({ nation, stages, missions, forces, upgrades, mods, now
                   <div style={{ width: `${pct}%`, height: "100%", background: "#D9B14B" }} />
                 </div>
                 <div style={{ fontSize: 11, color: "#D9B14B" }}>⚔️ Engaged — {Math.max(0, Math.ceil((active.endsAt - now) / 1000))}s remaining</div>
+                {fuelStarved && (t.air || t.naval) && (
+                  <div style={{ fontSize: 11, color: "#E08A7A", fontWeight: 700, marginTop: 2 }}>⛽ Fuel shortage — operation slowed 50%</div>
+                )}
               </div>
             ) : (
               <button onClick={() => onLaunch(t)} disabled={!ready}
