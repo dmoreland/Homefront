@@ -29,6 +29,7 @@ export const NATIONS = [
     year: "1940",
     blurb: "Imperial reach — a steady colonial trickle of oil & rubber and a balanced industrial base.",
     identity: "Colonial oil & rubber trickle · balanced",
+    theme: { sky: "#0E1822", moon: "#EDE6D3", land: "#1C2B3A", cliff: "#D8D4C4", sea: "#132534", wave: "#2E4B63", factory: "#26394E", chimney: "#31465C", smoke: "#4A6076", plane: "#D9B14B", ship: "#3A5570", balloons: true },
     trickle: { oil: 0.2, rubber: 0.2 },
     manpowerBase: 0.5,
     tapBase: 2,
@@ -68,6 +69,7 @@ export const NATIONS = [
     year: "1939",
     blurb: "Formidable heavy industry, but oil- and rubber-starved — build Synthetic Refineries to make your own fuel from steel.",
     identity: "Strong industry · oil/rubber-starved · synthetic fuel",
+    theme: { sky: "#12161C", moon: "#C9CBB8", land: "#242A21", cliff: null, sea: "#16211C", wave: "#33503F", factory: "#2B3524", chimney: "#3A472F", smoke: "#5A6A48", plane: "#AEB9C4", ship: "#46525E", balloons: false },
     trickle: {}, // no colonial trickle — fuel must be synthesised or seized
     manpowerBase: 0.5,
     tapBase: 2,

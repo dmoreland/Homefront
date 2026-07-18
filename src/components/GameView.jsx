@@ -19,7 +19,7 @@ export function GameView({ nation, game, sim, mods, now, canPrestige, prestigeAw
   return (
     <div style={{ minHeight: "100vh", background: "#16222E", color: "#EDE6D3", fontFamily: "'Trebuchet MS','Segoe UI',sans-serif", paddingBottom: 32 }}>
       <Header nation={nation} warScore={game.warScore} />
-      <Scene owned={game.owned} forces={game.forces} />
+      <Scene owned={game.owned} forces={game.forces} theme={nation.theme} />
 
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 14px" }}>
         {canPrestige && <PrestigeBanner award={prestigeAward} onPrestige={actions.prestige} />}

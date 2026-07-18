@@ -12,6 +12,7 @@ describe("nation configs", () => {
     for (const n of NATIONS) {
       expect(n.name && n.year && n.blurb).toBeTruthy();
       expect(typeof n.manpowerBase).toBe("number");
+      expect(n.theme).toBeTruthy();
       expect(n.generators.length).toBeGreaterThan(0);
       expect(n.forces.length).toBeGreaterThan(0);
       expect(n.theatres.length).toBeGreaterThan(0);
