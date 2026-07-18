@@ -9,11 +9,11 @@ import { Toast } from "./components/Toast.jsx";
 // State and simulation live in useGameEngine. This component routes between the
 // active campaign, the nation-selection screen, and the doctrine HQ.
 export default function App() {
-  const { game, nation, sim, mods, now, toast, doctrines, metaScreen, canPrestige, prestigeAward, actions } = useGameEngine();
+  const { game, nation, sim, mods, now, toast, doctrines, metaScreen, canPrestige, prestigeAward, fuelStarved, actions } = useGameEngine();
 
   let screen;
   if (nation) {
-    screen = <GameView nation={nation} game={game} sim={sim} mods={mods} now={now} canPrestige={canPrestige} prestigeAward={prestigeAward} actions={actions} />;
+    screen = <GameView nation={nation} game={game} sim={sim} mods={mods} now={now} canPrestige={canPrestige} prestigeAward={prestigeAward} fuelStarved={fuelStarved} actions={actions} />;
   } else if (metaScreen === "hq") {
     screen = <DoctrineHQ doctrines={doctrines} onBuy={actions.buyDoctrine} onBack={actions.closeDoctrines} />;
   } else {

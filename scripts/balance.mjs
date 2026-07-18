@@ -14,7 +14,7 @@ import { LINES } from "../src/data/gameData.js";
 import { simulate } from "../src/game/simulate.js";
 import { resolveMissions } from "../src/game/missions.js";
 import { costOf, canAfford } from "../src/game/economy.js";
-import { theatreDuration } from "../src/game/theatres.js";
+import { applyFuelPenalty, isFuelStarved, theatreDuration } from "../src/game/theatres.js";
 import { computeMods, doctrinePoints, effectiveForceCost, effectiveNeed, totalVictory } from "../src/game/doctrines.js";
 
 const DT = 1; // 1-second steps
@@ -125,6 +125,7 @@ export function runNation(nation) {
     }
     const r = simulate(g, DT, nation, mods);
     g = { ...g, res: r.res, eq: r.eq };
+    g = { ...g, missions: applyFuelPenalty(g.missions, nation, isFuelStarved(r.res, r.net), DT) };
 
     const rm = resolveMissions(g, t * 1000);
     g = rm.game;

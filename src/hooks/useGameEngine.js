@@ -4,7 +4,7 @@ import { getNation, newGame } from "../data/nations.js";
 import { simulate } from "../game/simulate.js";
 import { resolveMissions } from "../game/missions.js";
 import { applyOffline, OFFLINE_RATE } from "../game/offline.js";
-import { theatreDuration } from "../game/theatres.js";
+import { applyFuelPenalty, isFuelStarved, theatreDuration } from "../game/theatres.js";
 import { computeMods, doctrinePoints, effectiveForceCost, effectiveNeed, totalVictory } from "../game/doctrines.js";
 import { canAfford, costOf } from "../game/economy.js";
 import { saveStore } from "../game/saveStore.js";
@@ -54,6 +54,7 @@ export function useGameEngine() {
 
   const canPrestige = nation ? totalVictory(game, nation) : false;
   const prestigeAward = doctrinePoints(game.warTotal);
+  const fuelStarved = nation ? isFuelStarved(game.res, sim.net) : false;
 
   // Load doctrine (meta) save first, then any in-progress campaign.
   useEffect(() => {
@@ -89,6 +90,8 @@ export function useGameEngine() {
         if (!n) return g; // between runs — nothing to simulate
         const r = simulate(g, TICK_DT, n, modsRef.current);
         const advanced = { ...g, res: r.res, eq: r.eq };
+        // F15: oil deficit slows active air/naval operations.
+        advanced.missions = applyFuelPenalty(advanced.missions, n, isFuelStarved(r.res, r.net), TICK_DT);
         const { game: next, completed } = resolveMissions(advanced, Date.now());
         for (const m of completed) {
           const t = n.theatres.find((t) => t.id === m.theatre);
@@ -206,7 +209,7 @@ export function useGameEngine() {
   const closeDoctrines = useCallback(() => setMetaScreen("picker"), []);
 
   return {
-    game, nation, sim, now, toast, mods, doctrines, metaScreen, canPrestige, prestigeAward,
+    game, nation, sim, now, toast, mods, doctrines, metaScreen, canPrestige, prestigeAward, fuelStarved,
     actions: { selectNation, tap, buyGen, recruit, buyUpgrade, launch, reset, prestige, buyDoctrine, openDoctrines, closeDoctrines },
   };
 }

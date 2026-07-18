@@ -14,3 +14,31 @@ export function theatreDuration(theatre, stage, nation, upgradesOwned, mods) {
   if (opMult !== 1 && (theatre.air || theatre.naval)) dur *= opMult;
   return dur;
 }
+
+// F15 fuel mechanic: running dry slows active air/naval operations. Each starved
+// tick, such a mission makes only (1 - FUEL_SLOW) of its progress.
+export const FUEL_SLOW = 0.5;
+
+// Oil is "starved" when the stockpile is empty and demand still exceeds supply.
+export function isFuelStarved(res, net) {
+  return (res.oil ?? 0) <= 1e-6 && (net.oil ?? 0) < 0;
+}
+
+// While fuel-starved, push the endsAt of active air/naval missions forward so
+// they take longer (keeping endsAt an absolute timestamp keeps offline
+// resolution simple — the penalty only applies during live ticks). Land
+// operations are unaffected. Returns the same array reference when nothing changes.
+export function applyFuelPenalty(missions, nation, starved, dt) {
+  if (!starved || !missions.length) return missions;
+  const theatreById = Object.fromEntries(nation.theatres.map((t) => [t.id, t]));
+  let changed = false;
+  const next = missions.map((m) => {
+    const t = theatreById[m.theatre];
+    if (t && (t.air || t.naval)) {
+      changed = true;
+      return { ...m, endsAt: m.endsAt + FUEL_SLOW * dt * 1000 };
+    }
+    return m;
+  });
+  return changed ? next : missions;
+}
