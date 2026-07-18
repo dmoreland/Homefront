@@ -42,16 +42,38 @@ describe("simulate — UK generation", () => {
     expect(simulate(mk({ upgrades: { law1: true, law2: true, law3: true } }), 1, UK).gen.manpower).toBeCloseTo(4.0);
   });
 
-  it("boosts steel & aluminium output per Battle of Britain victory", () => {
+  it("boosts aluminium output per Battle of Britain victory — steel is no longer theatre-locked", () => {
     const r = simulate(mk({ owned: { mill: 1, smelter: 1 }, stages: { bob: 2 } }), 1, UK);
-    expect(r.gen.steel).toBeCloseTo(1.3); // 1 * (1 + 0.15*2)
-    expect(r.gen.alu).toBeCloseTo(0.65); // 0.5 * 1.3
+    expect(r.gen.alu).toBeCloseTo(0.65); // 0.5 * (1 + 0.15*2)
+    expect(r.gen.steel).toBeCloseTo(1); // bob no longer touches steel
   });
 
   it("adds theatre convoy bonuses to oil & rubber generation", () => {
     const r = simulate(mk({ stages: { africa: 1, atlantic: 2 } }), 1, UK);
     expect(r.gen.oil).toBeCloseTo(0.2 + 1 + 1.0); // trickle + africa + atlantic*0.5*2
     expect(r.gen.rubber).toBeCloseTo(0.2 + 1.0); // trickle + atlantic*0.5*2
+  });
+});
+
+describe("simulate — industry upgrades (in-run steel scaling)", () => {
+  it("War Production Board multiplies steel output", () => {
+    const r = simulate(mk({ owned: { mill: 1 }, upgrades: { ind1: true } }), 1, UK);
+    expect(r.gen.steel).toBeCloseTo(1.25);
+  });
+
+  it("stacks industry upgrades multiplicatively", () => {
+    const r = simulate(mk({ owned: { mill: 1 }, upgrades: { ind1: true, ind2: true } }), 1, UK);
+    expect(r.gen.steel).toBeCloseTo(1.25 * 1.4);
+  });
+
+  it("Total War Production boosts all producer output", () => {
+    const r = simulate(mk({ owned: { mill: 1, smelter: 1 }, upgrades: { ind3: true } }), 1, UK);
+    expect(r.gen.steel).toBeCloseTo(1.25);
+    expect(r.gen.alu).toBeCloseTo(0.5 * 1.25);
+  });
+
+  it("does nothing when the upgrade is not owned", () => {
+    expect(simulate(mk({ owned: { mill: 1 } }), 1, UK).gen.steel).toBeCloseTo(1);
   });
 });
 
