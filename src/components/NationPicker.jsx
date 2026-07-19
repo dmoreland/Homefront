@@ -1,3 +1,6 @@
+import { Flag } from "./Flag.jsx";
+import { Roundel } from "./Roundel.jsx";
+
 // Faction display order + labels. Nations without a faction fall into "Other".
 const FACTIONS = [
   { id: "Allies", label: "Allies" },
@@ -34,12 +37,17 @@ export function NationPicker({ nations, doctrinePoints = 0, onSelect, onOpenDoct
               {g.members.map((n) => (
                 <button key={n.id} onClick={() => onSelect(n.id)}
                   style={{ textAlign: "left", background: "#22344A", border: "1px solid #33506E", borderRadius: 12, padding: "16px 18px", color: "#EDE6D3", cursor: "pointer" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                    <strong style={{ fontSize: 18, color: "#D9B14B" }}>{n.name}</strong>
-                    <span style={{ fontSize: 11, letterSpacing: 2, color: "#7E96AC", textTransform: "uppercase" }}>{n.year}</span>
+                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <Flag nation={n.id} width={46} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                        <strong style={{ fontSize: 18, color: "#D9B14B", display: "flex", alignItems: "center", gap: 7 }}><Roundel nation={n.id} size={17} /> {n.name}</strong>
+                        <span style={{ fontSize: 11, letterSpacing: 2, color: "#7E96AC", textTransform: "uppercase" }}>{n.year}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#8FA37A", fontWeight: 700, marginTop: 4 }}>{n.identity}</div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12, color: "#8FA37A", fontWeight: 700, margin: "6px 0 4px" }}>{n.identity}</div>
-                  <div style={{ fontSize: 13, color: "#9FB4C7", lineHeight: 1.4 }}>{n.blurb}</div>
+                  <div style={{ fontSize: 13, color: "#9FB4C7", lineHeight: 1.4, marginTop: 8 }}>{n.blurb}</div>
                   <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: "#D9B14B" }}>Begin campaign →</div>
                 </button>
               ))}
