@@ -48,6 +48,18 @@ describe("resolveMissions", () => {
     expect(game.missions[0].theatre).toBe("atlantic");
   });
 
+  it("on defeat grants no stage or score and returns only a fraction of forces", () => {
+    // FAIL_LOSS = 0.5, so a 4-strong wing comes back at floor(4 * 0.5) = 2.
+    const g = { ...base(), forces: { air: 1 }, warScore: 2, warTotal: 2, missions: [{ theatre: "bob", stage: 3, forces: { air: 4 }, willFail: true, endsAt: 1000 }] };
+    const { game, completed } = resolveMissions(g, 2000);
+    expect(completed).toHaveLength(1);
+    expect(game.stages.bob).toBeUndefined(); // no stage gained
+    expect(game.warScore).toBe(2); // unchanged
+    expect(game.warTotal).toBe(2); // unchanged
+    expect(game.forces.air).toBe(3); // 1 held + 2 survivors
+    expect(game.missions).toEqual([]);
+  });
+
   it("does not mutate the input state", () => {
     const g = { ...base(), missions: [{ theatre: "bob", stage: 1, forces: { air: 2 }, endsAt: 1000 }] };
     const snapshot = JSON.stringify(g);
