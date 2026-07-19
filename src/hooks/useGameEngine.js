@@ -6,6 +6,7 @@ import { resolveMissions } from "../game/missions.js";
 import { applyOffline, OFFLINE_RATE } from "../game/offline.js";
 import { applyFuelPenalty, isFuelStarved, theatreDuration } from "../game/theatres.js";
 import { computeMods, doctrinePoints, effectiveForceCost, effectiveNeed, totalVictory } from "../game/doctrines.js";
+import { attritionMult, committedReadiness, failureChance, mobiliseCost, mobiliseReadiness, poolReadiness } from "../game/forces.js";
 import { canAfford, costOf } from "../game/economy.js";
 import { saveStore } from "../game/saveStore.js";
 import { fmt } from "../ui/format.js";
@@ -95,7 +96,9 @@ export function useGameEngine() {
         const { game: next, completed } = resolveMissions(advanced, Date.now());
         for (const m of completed) {
           const t = n.theatres.find((t) => t.id === m.theatre);
-          setTimeout(() => say(`🎖️ Victory in the ${t.name}! +${m.stage} War Score`), 0);
+          const name = t ? t.name : "the field";
+          if (m.willFail) setTimeout(() => say(`💥 Defeat in ${name} — under-equipped forces broke and took losses`, 5000), 0);
+          else setTimeout(() => say(`🎖️ Victory in the ${name}! +${m.stage} War Score`), 0);
         }
         return next;
       });
@@ -141,11 +144,33 @@ export function useGameEngine() {
     return { ...pay(g, cost), owned: { ...g.owned, [item.id]: (g.owned[item.id] || 0) + 1 } };
   }), []);
 
+  // Recruit a fully-equipped division/wing/fleet (readiness 1.0).
   const recruit = useCallback((f) => setGame((g) => {
     const cost = effectiveForceCost(f, modsRef.current);
     const stock = { ...g.eq, manpower: g.res.manpower };
     if (!canAfford(stock, cost)) return g;
-    return { ...pay(g, cost), forces: { ...g.forces, [f.id]: (g.forces[f.id] || 0) + 1 } };
+    return {
+      ...pay(g, cost),
+      forces: { ...g.forces, [f.id]: (g.forces[f.id] || 0) + 1 },
+      readiness: { ...g.readiness, [f.id]: poolReadiness(g.forces[f.id] || 0, g.readiness[f.id] ?? 1, 1) },
+    };
+  }), []);
+
+  // Mobilise a unit with whatever equipment is on hand — full manpower, only an
+  // r-fraction of each equipment. Blocked if the nation can't reach its floor.
+  const mobilise = useCallback((f) => setGame((g) => {
+    const n = getNation(g.nationId);
+    if (!n) return g;
+    const cost = effectiveForceCost(f, modsRef.current);
+    const r = mobiliseReadiness(cost, g.eq, n);
+    if (r == null) return g;
+    const spend = mobiliseCost(cost, r);
+    if (g.res.manpower < (spend.manpower || 0)) return g;
+    return {
+      ...pay(g, spend),
+      forces: { ...g.forces, [f.id]: (g.forces[f.id] || 0) + 1 },
+      readiness: { ...g.readiness, [f.id]: poolReadiness(g.forces[f.id] || 0, g.readiness[f.id] ?? 1, r) },
+    };
   }), []);
 
   const buyUpgrade = useCallback((u) => setGame((g) => {
@@ -168,8 +193,12 @@ export function useGameEngine() {
     for (const k in need) if ((g.forces[k] || 0) < need[k]) return g;
     const forces = { ...g.forces };
     for (const k in need) forces[k] -= need[k];
-    const dur = theatreDuration(t, stage, n, g.upgrades, modsRef.current);
-    return { ...g, forces, missions: [...g.missions, { theatre: t.id, stage, forces: need, endsAt: Date.now() + dur * 1000 }] };
+    // Readiness of the committed forces drives attrition (slower ops) and, below
+    // the nation's safe threshold, a one-time defeat roll baked in at launch.
+    const readiness = committedReadiness(need, g.readiness);
+    const dur = theatreDuration(t, stage, n, g.upgrades, modsRef.current) * attritionMult(readiness, n);
+    const willFail = Math.random() < failureChance(readiness, n);
+    return { ...g, forces, missions: [...g.missions, { theatre: t.id, stage, forces: need, readiness, willFail, endsAt: Date.now() + dur * 1000 }] };
   }), []);
 
   const reset = useCallback(async () => {
@@ -210,6 +239,6 @@ export function useGameEngine() {
 
   return {
     game, nation, sim, now, toast, mods, doctrines, metaScreen, canPrestige, prestigeAward, fuelStarved,
-    actions: { selectNation, tap, buyGen, recruit, buyUpgrade, launch, reset, prestige, buyDoctrine, openDoctrines, closeDoctrines },
+    actions: { selectNation, tap, buyGen, recruit, mobilise, buyUpgrade, launch, reset, prestige, buyDoctrine, openDoctrines, closeDoctrines },
   };
 }
