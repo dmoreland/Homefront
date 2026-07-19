@@ -24,6 +24,9 @@ export function Footer({ onReset }) {
           {armed ? "Tap again to confirm — wipes everything" : "Reset campaign"}
         </button>
       </div>
+      <div style={{ textAlign: "center", fontSize: 10, color: "#3A5068", marginTop: 14 }}>
+        Icons by Lorc, Delapouite & sbed · game-icons.net (CC BY 3.0) · flags public domain
+      </div>
     </>
   );
 }
