@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { GIcon, RES_ICON, FORCE_ICON } from "./Icon.jsx";
+import { GIcon, RES_ICON, FORCE_ICON, THEATRE_ICON } from "./Icon.jsx";
 import { Roundel } from "../components/Roundel.jsx";
 import { Flag } from "../components/Flag.jsx";
 import { NATIONS } from "../data/nations.js";
@@ -19,6 +19,10 @@ describe("GIcon", () => {
   it("has an icon mapping for every resource and force id", () => {
     for (const k of ["steel", "alu", "oil", "rubber", "manpower"]) expect(RES_ICON[k]).toBeTruthy();
     for (const k of ["inf", "arm", "air", "fleet"]) expect(FORCE_ICON[k]).toBeTruthy();
+  });
+
+  it("maps every theatre's emoji to a game-icon across all nations", () => {
+    for (const n of NATIONS) for (const t of n.theatres) expect(THEATRE_ICON[t.icon], `${n.id}/${t.id} (${t.icon})`).toBeTruthy();
   });
 });
 

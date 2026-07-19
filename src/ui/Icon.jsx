@@ -16,12 +16,19 @@ import fighter from "../assets/icons/fighter.svg?raw";
 import ship from "../assets/icons/ship.svg?raw";
 import helmet from "../assets/icons/helmet.svg?raw";
 import anchor from "../assets/icons/anchor.svg?raw";
+import battle from "../assets/icons/battle.svg?raw";
+import desert from "../assets/icons/desert.svg?raw";
+import winter from "../assets/icons/winter.svg?raw";
 
 const ICONS = {
   steel, alu, oil, rubber, manpower,
   factory, refinery, civ, synth,
   rifle, artillery, tank, fighter, ship, helmet, anchor,
+  battle, desert, winter,
 };
+
+// Theatre cards keep a thematic emoji in their data; map it to a game-icon.
+export const THEATRE_ICON = { "✈️": "fighter", "⚓": "anchor", "🏜️": "desert", "⚔️": "battle", "❄️": "winter", "🚜": "tank" };
 
 // Maps from game ids/keys to icon names.
 export const RES_ICON = { steel: "steel", alu: "alu", oil: "oil", rubber: "rubber", manpower: "manpower" };

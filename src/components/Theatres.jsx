@@ -1,5 +1,6 @@
 import { theatreDuration } from "../game/theatres.js";
 import { effectiveNeed } from "../game/doctrines.js";
+import { GIcon, THEATRE_ICON } from "../ui/Icon.jsx";
 import { S } from "../ui/styles.js";
 
 // Timed operations for the active nation: commit forces, watch the progress
@@ -24,7 +25,7 @@ export function Theatres({ nation, stages, missions, forces, upgrades, mods, fue
         return (
           <div key={t.id} style={{ ...S.panel, borderColor: active ? "#D9B14B" : "#33506E" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <strong>{t.icon} {t.name}</strong>
+              <strong style={{ display: "flex", alignItems: "center", gap: 9 }}><GIcon name={THEATRE_ICON[t.icon] || "battle"} size={20} color="#D9B14B" /> {t.name}</strong>
               <span style={{ fontSize: 11, color: "#D9B14B" }}>{(stages[t.id] || 0)} victories</span>
             </div>
             <div style={{ fontSize: 12, color: "#7E96AC", margin: "4px 0" }}>{t.rewardText}</div>
