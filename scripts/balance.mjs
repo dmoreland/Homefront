@@ -16,6 +16,7 @@ import { resolveMissions } from "../src/game/missions.js";
 import { costOf, canAfford } from "../src/game/economy.js";
 import { applyFuelPenalty, isFuelStarved, theatreDuration } from "../src/game/theatres.js";
 import { computeMods, doctrinePoints, effectiveForceCost, effectiveNeed, totalVictory } from "../src/game/doctrines.js";
+import { computeFocusMods, focusAvailable, mergeMods, resolveFocus } from "../src/game/focus.js";
 
 const DT = 1; // 1-second steps
 const MAX_SECONDS = 6 * 3600; // give up after 6h of sim time
@@ -49,8 +50,20 @@ function wantedForces(g, nation, mods) {
 
 function greedy(g, nation, mods, t) {
   const forceById = Object.fromEntries(nation.forces.map((f) => [f.id, f]));
+  const focusRank = (id) => { const i = ["war_footing", "steel1", "steel2", "total_war"].indexOf(id); return i === -1 ? 99 : i; };
   for (let guard = 0; guard < 500; guard++) {
     let acted = false;
+
+    // 0. Keep a National Focus running — prioritise the industry spine (steel
+    // scaling), then identity focuses. One at a time; completes on a timer.
+    if (!g.focus.active) {
+      const avail = (nation.focuses || []).filter((f) => focusAvailable(f, g.focus)).sort((a, b) => focusRank(a.id) - focusRank(b.id));
+      if (avail.length) {
+        const f = avail[0];
+        g = { ...g, focus: { ...g.focus, active: { id: f.id, endsAt: (t + f.time) * 1000 } } };
+        acted = true;
+      }
+    }
 
     // 1. Launch any theatre whose forces are ready.
     for (const th of nation.theatres) {
@@ -111,12 +124,14 @@ function greedy(g, nation, mods, t) {
 
 export function runNation(nation) {
   let g = newGame(nation);
-  const mods = computeMods({}); // first run — no doctrines
   const milestones = {};
   const mark = (k, t) => { if (milestones[k] == null) milestones[k] = t; };
   let taps = 0;
 
   for (let t = 0; t < MAX_SECONDS; t += DT) {
+    // mods are dynamic: no doctrines (first run) folded with completed focuses.
+    const mods = mergeMods(computeMods({}), computeFocusMods(nation, g.focus.done));
+
     // Bootstrap: simulate foundry tapping while the economy is tiny.
     if ((g.owned.mill || 0) < 4) {
       const per = (nation.tapBase || 2) * mods.tapMult;
@@ -130,6 +145,8 @@ export function runNation(nation) {
     const rm = resolveMissions(g, t * 1000);
     g = rm.game;
     for (const m of rm.completed) mark(`${m.theatre} S${m.stage}`, t);
+
+    g = resolveFocus(g, nation, t * 1000).game; // complete the active focus on its timer
 
     g = greedy(g, nation, mods, t);
 

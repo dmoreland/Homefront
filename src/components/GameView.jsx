@@ -3,6 +3,7 @@ import { Scene } from "./Scene.jsx";
 import { ResourceBar } from "./ResourceBar.jsx";
 import { PrestigeBanner } from "./PrestigeBanner.jsx";
 import { Foundry } from "./Foundry.jsx";
+import { FocusTree } from "./FocusTree.jsx";
 import { GeneratorList } from "./GeneratorList.jsx";
 import { ProductionLines } from "./ProductionLines.jsx";
 import { ForcesList } from "./ForcesList.jsx";
@@ -25,6 +26,7 @@ export function GameView({ nation, game, sim, mods, now, canPrestige, prestigeAw
         {canPrestige && <PrestigeBanner award={prestigeAward} onPrestige={actions.prestige} />}
         <ResourceBar res={game.res} net={sim.net} />
         <Foundry perTap={perTap} onTap={actions.tap} />
+        <FocusTree nation={nation} focus={game.focus} now={now} onStart={actions.startFocus} />
         <GeneratorList generators={nation.generators} owned={game.owned} res={game.res} onBuy={actions.buyGen} />
         <ProductionLines owned={game.owned} res={game.res} eq={game.eq} lineStatus={sim.lineStatus} onBuy={actions.buyGen} />
         <ForcesList forces={nation.forces} res={game.res} eq={game.eq} owned={game.forces} readiness={game.readiness} mods={mods} onRecruit={actions.recruit} onMobilise={actions.mobilise} />

@@ -31,21 +31,13 @@ export function simulate(s, dt, nation, mods) {
     if (u.manpowerMult && s.upgrades[u.id]) lawMult = Math.max(lawMult, u.manpowerMult);
   }
 
-  // In-run industry upgrades (War Cabinet): per-resource output multipliers,
-  // stacking multiplicatively. This is the main non-theatre steel scaling lever.
-  const upgradeMult = { steel: 1, alu: 1, oil: 1, rubber: 1, manpower: 1 };
-  for (const u of nation.upgrades) {
-    if (u.outputMult && s.upgrades[u.id]) {
-      const keys = u.outputMult.res === "all" ? Object.keys(upgradeMult) : [].concat(u.outputMult.res);
-      for (const r of keys) upgradeMult[r] *= u.outputMult.mult;
-    }
-  }
-
-  // Theatre output multipliers (e.g. Battle of Britain: +15% steel & alu per victory).
+  // Theatre output multipliers (e.g. Battle of Britain: +15% steel & alu per victory),
+  // scaled by any theatre-reward focus/doctrine bonus.
+  const rewardMult = mods?.theatreRewardMult ?? 1;
   const mult = { steel: 1, alu: 1, oil: 1, rubber: 1, manpower: 1 };
   for (const t of nation.theatres) {
     const st = s.stages[t.id] || 0;
-    if (st && t.reward.kind === "mult") for (const r of t.reward.res) mult[r] *= 1 + t.reward.per * st;
+    if (st && t.reward.kind === "mult") for (const r of t.reward.res) mult[r] *= 1 + t.reward.per * st * rewardMult;
   }
 
   // Base generation from producer buildings.
@@ -54,18 +46,21 @@ export function simulate(s, dt, nation, mods) {
     if (!g.produces) continue;
     const n = s.owned[g.id] || 0;
     if (!n) continue;
-    for (const r in g.produces) gen[r] += n * g.produces[r] * civMult * mult[r] * upgradeMult[r];
+    for (const r in g.produces) gen[r] += n * g.produces[r] * civMult * mult[r];
   }
   // Passive nation trickle (flat, not multiplied).
   for (const r in nation.trickle) gen[r] += nation.trickle[r];
+  // Flat generation from National Focus (e.g. Strike South: +oil/sec), like trickle.
+  for (const r in mods?.flatGen || {}) gen[r] += mods.flatGen[r];
   // Theatre flat rewards, per victory (e.g. +1 oil/sec per Eastern Front win).
   for (const t of nation.theatres) {
     const st = s.stages[t.id] || 0;
-    if (st && t.reward.kind === "flat") for (const r in t.reward.per) gen[r] += t.reward.per[r] * st;
+    if (st && t.reward.kind === "flat") for (const r in t.reward.per) gen[r] += t.reward.per[r] * st * rewardMult;
   }
-  gen.manpower = nation.manpowerBase * lawMult;
+  gen.manpower = nation.manpowerBase * lawMult * (mods?.manpowerMult ?? 1);
 
-  // Doctrine War Economy multipliers apply to all base generation.
+  // Doctrine + focus resource-output multipliers apply to all base generation
+  // (steel scaling now flows through genMult — the industry focuses set it).
   for (const r in gen) gen[r] *= genMult[r] ?? 1;
 
   // Force upkeep (oil) from air wings / fleets, reduced by Sea doctrines.

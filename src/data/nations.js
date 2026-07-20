@@ -22,18 +22,27 @@ import { FRESH } from "./gameData.js";
 //   upgrade tap:         { cost, tapMult: 3 }
 // =====================================================
 
-// Standard War Cabinet upgrade set — every nation gets the same levers (foundry
-// tap ×3, three Industry steel tiers, radar, three-tier conscription ladder);
-// only the names differ. Steel scaling lives here, not in theatres.
+// War Cabinet upgrade set — bought with War Score: radar + the conscription
+// ladder. (Industry/steel scaling moved to the timed National Focus tree.)
 const mkUpgrades = (n) => [
-  { id: "shift", name: n.shift, desc: "Foundry taps produce 3× steel", cost: { steel: 300 }, tapMult: 3 },
-  { id: "ind1", name: n.ind1, desc: "Steel output +25%", cost: { steel: 350 }, outputMult: { res: "steel", mult: 1.25 } },
-  { id: "ind2", name: n.ind2, desc: "Steel output +40% more", cost: { steel: 1400 }, req: "ind1", outputMult: { res: "steel", mult: 1.4 } },
-  { id: "ind3", name: n.ind3, desc: "All resource output +25%", cost: { steel: 5000 }, req: "ind2", outputMult: { res: "all", mult: 1.25 } },
   { id: "radar", name: n.radar, desc: "Air & naval theatres resolve 25% faster", ws: 3, speeds: ["air", "naval"], factor: 0.75 },
   { id: "law1", name: n.law1, desc: "Manpower growth ×2", ws: 2, manpowerMult: 2 },
   { id: "law2", name: n.law2, desc: "Manpower growth ×4", ws: 6, req: "law1", manpowerMult: 4 },
   { id: "law3", name: n.law3, desc: "Manpower growth ×8", ws: 15, req: "law2", manpowerMult: 8 },
+];
+
+// National Focus tree — timed focuses (seconds) that complete on a timer and grant
+// permanent (for the run) bonuses. Every nation shares an industry spine
+// (tap → steel → steel → all-output, the folded War-Cabinet industry tiers,
+// reflavoured per nation) and appends its own identity focuses. Effects use the
+// vocabulary in game/focus.js. `s` names the four spine focuses; `extra` is the
+// nation's identity branch (each with a unique id + req into the spine).
+const mkFocuses = (s, extra = []) => [
+  { id: "war_footing", name: s.warFooting, desc: "Foundry taps produce 3× steel", time: 45, effect: { kind: "tapMult", mult: 3 } },
+  { id: "steel1", name: s.steel1, desc: "Steel output +25%", time: 90, req: "war_footing", effect: { kind: "genMult", res: "steel", mult: 1.25 } },
+  { id: "steel2", name: s.steel2, desc: "Steel output +40% more", time: 210, req: "steel1", effect: { kind: "genMult", res: "steel", mult: 1.4 } },
+  { id: "total_war", name: s.totalWar, desc: "All resource output +25%", time: 360, req: "steel2", effect: { kind: "genMult", res: "all", mult: 1.25 } },
+  ...extra,
 ];
 
 export const NATIONS = [
@@ -67,16 +76,15 @@ export const NATIONS = [
       { id: "atlantic", name: "Battle of the Atlantic", icon: "⚓", dur: 120, naval: true, need: (st) => ({ fleet: 2 * st }), reward: { kind: "flat", per: { oil: 0.5, rubber: 0.5 } }, rewardText: "+0.5 oil & rubber/sec convoys per victory" },
       { id: "africa", name: "North Africa", icon: "🏜️", dur: 150, need: (st) => ({ inf: 3 * st, arm: 1 * st }), reward: { kind: "flat", per: { oil: 1 } }, rewardText: "+1 oil/sec Middle East fields per victory" },
     ],
-    upgrades: [
-      { id: "shift", name: "Shift Work", desc: "Foundry taps produce 3× steel", cost: { steel: 300 }, tapMult: 3 },
-      { id: "ind1", name: "War Production Board", desc: "Steel output +25%", cost: { steel: 350 }, outputMult: { res: "steel", mult: 1.25 } },
-      { id: "ind2", name: "Heavy Industry", desc: "Steel output +40% more", cost: { steel: 1400 }, req: "ind1", outputMult: { res: "steel", mult: 1.4 } },
-      { id: "ind3", name: "Total War Production", desc: "All resource output +25%", cost: { steel: 5000 }, req: "ind2", outputMult: { res: "all", mult: 1.25 } },
-      { id: "radar", name: "Radar Network", desc: "Air & naval theatres resolve 25% faster", ws: 3, speeds: ["air", "naval"], factor: 0.75 },
-      { id: "law1", name: "Limited Conscription", desc: "Manpower growth ×2", ws: 2, manpowerMult: 2 },
-      { id: "law2", name: "Extensive Conscription", desc: "Manpower growth ×4", ws: 6, req: "law1", manpowerMult: 4 },
-      { id: "law3", name: "Service by Requirement", desc: "Manpower growth ×8", ws: 15, req: "law2", manpowerMult: 8 },
-    ],
+    upgrades: mkUpgrades({ radar: "Radar Network", law1: "Limited Conscription", law2: "Extensive Conscription", law3: "Service by Requirement" }),
+    focuses: mkFocuses(
+      { warFooting: "Shift Work", steel1: "War Production Board", steel2: "Heavy Industry", totalWar: "Total War Production" },
+      [
+        { id: "lend_lease", name: "Lend-Lease Act", desc: "+800 steel now (American shipments)", time: 120, req: "war_footing", effect: { kind: "grant", res: { steel: 800 } } },
+        { id: "imperial_convoys", name: "Imperial Convoys", desc: "+0.4 oil & rubber/sec", time: 150, req: "steel1", effect: { kind: "flatGen", res: { oil: 0.4, rubber: 0.4 } } },
+        { id: "bomber_command", name: "Bomber Command", desc: "Air & naval operations 20% faster", time: 180, req: "steel1", effect: { kind: "opSpeed", mult: 0.8 } },
+      ],
+    ),
   },
 
   {
@@ -109,16 +117,16 @@ export const NATIONS = [
       { id: "east", name: "Eastern Front", icon: "❄️", dur: 180, need: (st) => ({ inf: 4 * st, arm: 2 * st }), reward: { kind: "flat", per: { oil: 1 } }, rewardText: "+1 oil/sec (Caucasus fields) per victory" },
       { id: "uboat", name: "Atlantic U-boats", icon: "⚓", dur: 120, naval: true, need: (st) => ({ fleet: 2 * st }), reward: { kind: "flat", per: { oil: 0.3, rubber: 0.4 } }, rewardText: "+0.3 oil & +0.4 rubber/sec (raided convoys) per victory" },
     ],
-    upgrades: [
-      { id: "shift", name: "War Economy", desc: "Foundry taps produce 3× steel", cost: { steel: 300 }, tapMult: 3 },
-      { id: "ind1", name: "Ruhr Expansion", desc: "Steel output +25%", cost: { steel: 350 }, outputMult: { res: "steel", mult: 1.25 } },
-      { id: "ind2", name: "Heavy Industry Drive", desc: "Steel output +40% more", cost: { steel: 1400 }, req: "ind1", outputMult: { res: "steel", mult: 1.4 } },
-      { id: "ind3", name: "Total Industrial Mobilisation", desc: "All resource output +25%", cost: { steel: 5000 }, req: "ind2", outputMult: { res: "all", mult: 1.25 } },
-      { id: "radar", name: "Freya Radar", desc: "Air & naval theatres resolve 25% faster", ws: 3, speeds: ["air", "naval"], factor: 0.75 },
-      { id: "law1", name: "Conscription Act", desc: "Manpower growth ×2", ws: 2, manpowerMult: 2 },
-      { id: "law2", name: "Extended Service", desc: "Manpower growth ×4", ws: 6, req: "law1", manpowerMult: 4 },
-      { id: "law3", name: "Total Mobilisation", desc: "Manpower growth ×8", ws: 15, req: "law2", manpowerMult: 8 },
-    ],
+    upgrades: mkUpgrades({ radar: "Freya Radar", law1: "Conscription Act", law2: "Extended Service", law3: "Total Mobilisation" }),
+    focuses: mkFocuses(
+      { warFooting: "War Economy", steel1: "Ruhr Expansion", steel2: "Heavy Industry Drive", totalWar: "Total Industrial Mobilisation" },
+      [
+        { id: "blitzkrieg", name: "Blitzkrieg", desc: "Air & naval operations 20% faster", time: 150, req: "war_footing", effect: { kind: "opSpeed", mult: 0.8 } },
+        { id: "panzer_doctrine", name: "Panzer Doctrine", desc: "Armour cost −20%", time: 150, req: "war_footing", effect: { kind: "forceCost", target: "arm", mult: 0.8 } },
+        { id: "synth_fuel", name: "Synthetic Fuel Program", desc: "Oil & rubber output +30%", time: 180, req: "steel1", effect: { kind: "genMult", res: ["oil", "rubber"], mult: 1.3 } },
+        { id: "wolfpack", name: "Wolfpack Tactics", desc: "Theatre victory rewards +30%", time: 200, req: "steel1", effect: { kind: "theatreReward", mult: 1.3 } },
+      ],
+    ),
   },
 
   {
@@ -151,7 +159,16 @@ export const NATIONS = [
       { id: "torch", name: "North Africa", icon: "🏜️", dur: 150, need: (st) => ({ inf: 3 * st, arm: 1 * st }), reward: { kind: "flat", per: { oil: 1 } }, rewardText: "+1 oil/sec (captured fields) per victory" },
       { id: "normandy", name: "Normandy", icon: "⚔️", dur: 150, air: true, need: (st) => ({ inf: 3 * st, arm: 2 * st, air: 1 * st }), reward: { kind: "mult", res: ["alu"], per: 0.15 }, rewardText: "+15% aluminium output per victory" },
     ],
-    upgrades: mkUpgrades({ shift: "War Production Drive", ind1: "War Production Board", ind2: "Arsenal of Democracy", ind3: "Total War Production", radar: "Radar Network", law1: "Selective Service", law2: "Extended Draft", law3: "Full Conscription" }),
+    upgrades: mkUpgrades({ radar: "Radar Network", law1: "Selective Service", law2: "Extended Draft", law3: "Full Conscription" }),
+    focuses: mkFocuses(
+      { warFooting: "War Production Drive", steel1: "War Production Board", steel2: "Detroit Retooling", totalWar: "Total War Production" },
+      [
+        { id: "cash_carry", name: "Cash and Carry", desc: "+1000 steel now (war orders)", time: 120, req: "war_footing", effect: { kind: "grant", res: { steel: 1000 } } },
+        { id: "two_ocean", name: "Two-Ocean Navy Act", desc: "Fleet cost −20%", time: 180, req: "steel1", effect: { kind: "forceCost", target: "fleet", mult: 0.8 } },
+        { id: "victory_program", name: "Victory Program", desc: "Theatre victory rewards +25%", time: 240, req: "steel2", effect: { kind: "theatreReward", mult: 1.25 } },
+        { id: "arsenal", name: "Arsenal of Democracy", desc: "All resource output +30% (the great ramp)", time: 360, req: "total_war", effect: { kind: "genMult", res: "all", mult: 1.3 } },
+      ],
+    ),
   },
 
   {
@@ -184,7 +201,15 @@ export const NATIONS = [
       { id: "medfr", name: "Mediterranean", icon: "⚓", dur: 120, naval: true, need: (st) => ({ fleet: 2 * st }), reward: { kind: "flat", per: { oil: 0.5, rubber: 0.4 } }, rewardText: "+0.5 oil & +0.4 rubber/sec per victory" },
       { id: "freefr", name: "Free French Africa", icon: "🏜️", dur: 150, need: (st) => ({ inf: 3 * st, arm: 1 * st }), reward: { kind: "flat", per: { oil: 1 } }, rewardText: "+1 oil/sec (colonial fields) per victory" },
     ],
-    upgrades: mkUpgrades({ shift: "Shift Work", ind1: "War Production Board", ind2: "Heavy Industry", ind3: "Total War Economy", radar: "Radar Network", law1: "Limited Conscription", law2: "Extensive Conscription", law3: "Levée en Masse" }),
+    upgrades: mkUpgrades({ radar: "Radar Network", law1: "Limited Conscription", law2: "Extensive Conscription", law3: "Levée en Masse" }),
+    focuses: mkFocuses(
+      { warFooting: "Shift Work", steel1: "War Production Board", steel2: "Heavy Industry", totalWar: "Total War Economy" },
+      [
+        { id: "grand_battery", name: "Grand Battery", desc: "Infantry cost −20% (artillery doctrine)", time: 140, req: "war_footing", effect: { kind: "forceCost", target: "inf", mult: 0.8 } },
+        { id: "maginot", name: "Maginot Line", desc: "Theatre force requirements −1", time: 220, req: "war_footing", effect: { kind: "stageReq", delta: -1 } },
+        { id: "colonial_levies", name: "Colonial Levies", desc: "+0.3 oil & rubber/sec (overseas territories)", time: 150, req: "steel1", effect: { kind: "flatGen", res: { oil: 0.3, rubber: 0.3 } } },
+      ],
+    ),
   },
 
   {
@@ -217,7 +242,15 @@ export const NATIONS = [
       { id: "stalingrad", name: "Stalingrad", icon: "⚔️", dur: 150, need: (st) => ({ inf: 5 * st, arm: 2 * st }), reward: { kind: "mult", res: ["alu"], per: 0.12 }, rewardText: "+12% aluminium output per victory" },
       { id: "bagration", name: "Operation Bagration", icon: "🚜", dur: 170, air: true, need: (st) => ({ inf: 4 * st, arm: 2 * st, air: 1 * st }), reward: { kind: "flat", per: { oil: 1, rubber: 0.4 } }, rewardText: "+1 oil & +0.4 rubber/sec per victory" },
     ],
-    upgrades: mkUpgrades({ shift: "Stakhanovite Shifts", ind1: "Five-Year Plan", ind2: "Heavy Industry", ind3: "Total War Economy", radar: "Radar Network", law1: "General Mobilisation", law2: "Extended Mobilisation", law3: "Total Mobilisation" }),
+    upgrades: mkUpgrades({ radar: "Radar Network", law1: "General Mobilisation", law2: "Extended Mobilisation", law3: "Total Mobilisation" }),
+    focuses: mkFocuses(
+      { warFooting: "Stakhanovite Shifts", steel1: "Five-Year Plan", steel2: "Heavy Industry", totalWar: "Total War Economy" },
+      [
+        { id: "not_one_step", name: "Not One Step Back", desc: "Manpower growth ×2 (mass mobilisation)", time: 150, req: "war_footing", effect: { kind: "manpowerMult", mult: 2 } },
+        { id: "rifle_mass", name: "Rifle Divisions", desc: "Infantry cost −25% (weight of numbers)", time: 140, req: "war_footing", effect: { kind: "forceCost", target: "inf", mult: 0.75 } },
+        { id: "deep_battle", name: "Deep Battle Doctrine", desc: "Armour cost −20%", time: 180, req: "steel1", effect: { kind: "forceCost", target: "arm", mult: 0.8 } },
+      ],
+    ),
   },
 
   {
@@ -250,7 +283,15 @@ export const NATIONS = [
       { id: "nafrica", name: "North Africa", icon: "🏜️", dur: 150, need: (st) => ({ inf: 3 * st, arm: 1 * st }), reward: { kind: "flat", per: { oil: 1 } }, rewardText: "+1 oil/sec per victory" },
       { id: "balkans", name: "Balkans", icon: "⚔️", dur: 130, air: true, need: (st) => ({ inf: 3 * st, air: 1 * st }), reward: { kind: "mult", res: ["alu"], per: 0.12 }, rewardText: "+12% aluminium output per victory" },
     ],
-    upgrades: mkUpgrades({ shift: "Shift Work", ind1: "War Production Board", ind2: "Heavy Industry", ind3: "Total War Economy", radar: "Radar Network", law1: "Limited Conscription", law2: "Extensive Conscription", law3: "Total Mobilisation" }),
+    upgrades: mkUpgrades({ radar: "Radar Network", law1: "Limited Conscription", law2: "Extensive Conscription", law3: "Total Mobilisation" }),
+    focuses: mkFocuses(
+      { warFooting: "Shift Work", steel1: "War Production Board", steel2: "Heavy Industry", totalWar: "Total War Economy" },
+      [
+        { id: "mare_nostrum", name: "Mare Nostrum", desc: "Fleet cost −20% (Mediterranean fleet)", time: 150, req: "war_footing", effect: { kind: "forceCost", target: "fleet", mult: 0.8 } },
+        { id: "regia_aeronautica", name: "Regia Aeronautica", desc: "Air & naval operations 20% faster", time: 150, req: "war_footing", effect: { kind: "opSpeed", mult: 0.8 } },
+        { id: "autarky", name: "Autarky", desc: "+0.3 oil & rubber/sec (self-sufficiency)", time: 180, req: "steel1", effect: { kind: "flatGen", res: { oil: 0.3, rubber: 0.3 } } },
+      ],
+    ),
   },
 
   {
@@ -283,7 +324,16 @@ export const NATIONS = [
       { id: "coralsea", name: "Coral Sea", icon: "✈️", dur: 120, naval: true, need: (st) => ({ fleet: 2 * st }), reward: { kind: "mult", res: ["alu"], per: 0.15 }, rewardText: "+15% aluminium output per victory" },
       { id: "burma", name: "Burma", icon: "🏜️", dur: 150, need: (st) => ({ inf: 3 * st, arm: 1 * st }), reward: { kind: "flat", per: { oil: 1 } }, rewardText: "+1 oil/sec per victory" },
     ],
-    upgrades: mkUpgrades({ shift: "Shift Work", ind1: "War Production Board", ind2: "Heavy Industry", ind3: "Total War Economy", radar: "Radar Network", law1: "Limited Conscription", law2: "Extensive Conscription", law3: "Total Mobilisation" }),
+    upgrades: mkUpgrades({ radar: "Radar Network", law1: "Limited Conscription", law2: "Extensive Conscription", law3: "Total Mobilisation" }),
+    focuses: mkFocuses(
+      { warFooting: "Shift Work", steel1: "War Production Board", steel2: "Heavy Industry", totalWar: "Total War Economy" },
+      [
+        { id: "strike_south", name: "Strike South", desc: "+0.5 oil & +0.3 rubber/sec (seized resource zone)", time: 150, req: "war_footing", effect: { kind: "flatGen", res: { oil: 0.5, rubber: 0.3 } } },
+        { id: "naval_air", name: "Naval Air Doctrine", desc: "Air wing cost −20%", time: 150, req: "war_footing", effect: { kind: "forceCost", target: "air", mult: 0.8 } },
+        { id: "carrier_doctrine", name: "Carrier Doctrine", desc: "Fleet cost −20%", time: 180, req: "steel1", effect: { kind: "forceCost", target: "fleet", mult: 0.8 } },
+        { id: "island_chain", name: "Island Chain Defence", desc: "Theatre victory rewards +30%", time: 200, req: "steel1", effect: { kind: "theatreReward", mult: 1.3 } },
+      ],
+    ),
   },
 ];
 

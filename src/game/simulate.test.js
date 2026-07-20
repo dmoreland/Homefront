@@ -55,24 +55,31 @@ describe("simulate — UK generation", () => {
   });
 });
 
-describe("simulate — industry upgrades (in-run steel scaling)", () => {
-  it("War Production Board multiplies steel output", () => {
-    const r = simulate(mk({ owned: { mill: 1 }, upgrades: { ind1: true } }), 1, UK);
-    expect(r.gen.steel).toBeCloseTo(1.25);
-  });
-
-  it("stacks industry upgrades multiplicatively", () => {
-    const r = simulate(mk({ owned: { mill: 1 }, upgrades: { ind1: true, ind2: true } }), 1, UK);
+describe("simulate — mods (focus/doctrine bonuses)", () => {
+  it("genMult multiplies producer output (industry focuses / War Economy)", () => {
+    // Steel scaling now flows through mods.genMult (set by the industry focuses).
+    const r = simulate(mk({ owned: { mill: 1, smelter: 1 } }), 1, UK, { genMult: { steel: 1.25 * 1.4, alu: 1.25 } });
     expect(r.gen.steel).toBeCloseTo(1.25 * 1.4);
-  });
-
-  it("Total War Production boosts all producer output", () => {
-    const r = simulate(mk({ owned: { mill: 1, smelter: 1 }, upgrades: { ind3: true } }), 1, UK);
-    expect(r.gen.steel).toBeCloseTo(1.25);
     expect(r.gen.alu).toBeCloseTo(0.5 * 1.25);
   });
 
-  it("does nothing when the upgrade is not owned", () => {
+  it("manpowerMult multiplies manpower generation (USSR human wave)", () => {
+    // UK manpowerBase 0.5 × law ×1 × mods ×2 = 1.0
+    expect(simulate(mk(), 1, UK, { manpowerMult: 2 }).gen.manpower).toBeCloseTo(1.0);
+  });
+
+  it("flatGen adds a flat resource trickle (Strike South / convoys)", () => {
+    // UK has no steel trickle, so flatGen steel is the whole contribution.
+    expect(simulate(mk(), 1, UK, { flatGen: { steel: 3 } }).gen.steel).toBeCloseTo(3);
+  });
+
+  it("theatreRewardMult scales theatre victory rewards", () => {
+    // Battle of Britain: +15% alu per victory; at ×2 reward that's +30% on one smelter.
+    const r = simulate(mk({ owned: { smelter: 1 }, stages: { bob: 1 } }), 1, UK, { theatreRewardMult: 2 });
+    expect(r.gen.alu).toBeCloseTo(0.5 * (1 + 0.15 * 2));
+  });
+
+  it("applies no bonus with the identity (no mods)", () => {
     expect(simulate(mk({ owned: { mill: 1 } }), 1, UK).gen.steel).toBeCloseTo(1);
   });
 });
