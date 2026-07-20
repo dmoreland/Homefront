@@ -27,7 +27,7 @@ export function GameView({ nation, game, sim, mods, now, canPrestige, prestigeAw
         <Foundry perTap={perTap} onTap={actions.tap} />
         <GeneratorList generators={nation.generators} owned={game.owned} res={game.res} onBuy={actions.buyGen} />
         <ProductionLines owned={game.owned} res={game.res} eq={game.eq} lineStatus={sim.lineStatus} onBuy={actions.buyGen} />
-        <ForcesList nation={nation} forces={nation.forces} res={game.res} eq={game.eq} owned={game.forces} readiness={game.readiness} mods={mods} onRecruit={actions.recruit} onMobilise={actions.mobilise} />
+        <ForcesList forces={nation.forces} res={game.res} eq={game.eq} owned={game.forces} readiness={game.readiness} mods={mods} onRecruit={actions.recruit} onMobilise={actions.mobilise} />
         <Theatres nation={nation} stages={game.stages} missions={game.missions} forces={game.forces} readiness={game.readiness} upgrades={game.upgrades} mods={mods} fuelStarved={fuelStarved} now={now} onLaunch={actions.launch} />
         <WarCabinet upgrades={nation.upgrades} res={game.res} warScore={game.warScore} owned={game.upgrades} onBuy={actions.buyUpgrade} />
         <Footer onReset={actions.reset} />

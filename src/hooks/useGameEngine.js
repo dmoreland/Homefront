@@ -90,7 +90,7 @@ export function useGameEngine() {
         const n = getNation(g.nationId);
         if (!n) return g; // between runs — nothing to simulate
         const r = simulate(g, TICK_DT, n, modsRef.current);
-        const advanced = { ...g, res: r.res, eq: r.eq };
+        const advanced = { ...g, res: r.res, eq: r.eq, readiness: r.readiness };
         // F15: oil deficit slows active air/naval operations.
         advanced.missions = applyFuelPenalty(advanced.missions, n, isFuelStarved(r.res, r.net), TICK_DT);
         const { game: next, completed } = resolveMissions(advanced, Date.now());
@@ -157,13 +157,13 @@ export function useGameEngine() {
   }), []);
 
   // Mobilise a unit with whatever equipment is on hand — full manpower, only an
-  // r-fraction of each equipment. Blocked if the nation can't reach its floor.
+  // r-fraction of each equipment (any readiness, even 0%). Needs only manpower;
+  // reinforcement tops the unit up over time as equipment allows.
   const mobilise = useCallback((f) => setGame((g) => {
     const n = getNation(g.nationId);
     if (!n) return g;
     const cost = effectiveForceCost(f, modsRef.current);
-    const r = mobiliseReadiness(cost, g.eq, n);
-    if (r == null) return g;
+    const r = mobiliseReadiness(cost, g.eq);
     const spend = mobiliseCost(cost, r);
     if (g.res.manpower < (spend.manpower || 0)) return g;
     return {
@@ -194,11 +194,14 @@ export function useGameEngine() {
     const forces = { ...g.forces };
     for (const k in need) forces[k] -= need[k];
     // Readiness of the committed forces drives attrition (slower ops) and, below
-    // the nation's safe threshold, a one-time defeat roll baked in at launch.
+    // the nation's safe threshold, a one-time defeat roll baked in at launch. The
+    // per-force readiness is kept so survivors blend back correctly on return.
+    const forceReadiness = {};
+    for (const k in need) forceReadiness[k] = g.readiness[k] ?? 1;
     const readiness = committedReadiness(need, g.readiness);
     const dur = theatreDuration(t, stage, n, g.upgrades, modsRef.current) * attritionMult(readiness, n);
     const willFail = Math.random() < failureChance(readiness, n);
-    return { ...g, forces, missions: [...g.missions, { theatre: t.id, stage, forces: need, readiness, willFail, endsAt: Date.now() + dur * 1000 }] };
+    return { ...g, forces, missions: [...g.missions, { theatre: t.id, stage, forces: need, readiness, forceReadiness, willFail, endsAt: Date.now() + dur * 1000 }] };
   }), []);
 
   const reset = useCallback(async () => {

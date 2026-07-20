@@ -60,6 +60,19 @@ describe("resolveMissions", () => {
     expect(game.missions).toEqual([]);
   });
 
+  it("blends returning units back at the readiness they deployed with", () => {
+    // 2 units stayed home and were reinforced to 1.0 while 3 were away at 0.3.
+    const g = {
+      ...base(), forces: { inf: 2 }, readiness: { inf: 1 },
+      missions: [{ theatre: "east", stage: 1, forces: { inf: 3 }, readiness: 0.3, forceReadiness: { inf: 0.3 }, endsAt: 1000 }],
+    };
+    const { game } = resolveMissions(g, 2000);
+    expect(game.forces.inf).toBe(5);
+    // (2*1 + 3*0.3) / 5 = 0.58 — the reinforced home units aren't dragged to 0.3,
+    // and the returning under-strength units don't get free readiness.
+    expect(game.readiness.inf).toBeCloseTo(0.58);
+  });
+
   it("does not mutate the input state", () => {
     const g = { ...base(), missions: [{ theatre: "bob", stage: 1, forces: { air: 2 }, endsAt: 1000 }] };
     const snapshot = JSON.stringify(g);
