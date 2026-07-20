@@ -1,4 +1,5 @@
 import { LINES } from "../data/gameData.js";
+import { reinforce } from "./forces.js";
 
 // Pure simulation step — used by the live 250ms tick AND offline earnings.
 // Given a game state, a timestep dt (seconds), the active nation config, and an
@@ -125,6 +126,12 @@ export function simulate(s, dt, nation, mods) {
     lineStatus[line.id] = frac;
   }
 
+  // Reinforcement: surplus equipment tops up under-strength (mobilised) forces
+  // toward full readiness before any is free to raise new units. Pure and
+  // dt-independent (draws from the stock on hand), so it runs identically in the
+  // live tick and in offline resolution.
+  const reinforced = reinforce(s.forces || {}, s.readiness || {}, eq, nation, mods);
+
   // Net flow per resource — what the stockpile is actually doing.
   const net = {
     steel: gen.steel - cons.steel,
@@ -133,5 +140,5 @@ export function simulate(s, dt, nation, mods) {
     rubber: gen.rubber - cons.rubber,
     manpower: gen.manpower,
   };
-  return { res, eq, gen, net, upkeep, lineStatus, convStatus };
+  return { res, eq: reinforced.eq, readiness: reinforced.readiness, gen, net, upkeep, lineStatus, convStatus };
 }

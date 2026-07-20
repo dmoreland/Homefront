@@ -14,5 +14,5 @@ export function applyOffline(game, savedAt, nowMs, nation, opts = {}) {
   if (elapsed <= MIN_OFFLINE_SECONDS) return { game };
   const rate = Math.min(0.95, opts.rate ?? (OFFLINE_RATE + (opts.mods?.offlineRateAdd ?? 0)));
   const sim = simulate(game, elapsed * rate, nation, opts.mods);
-  return { game: { ...game, res: sim.res, eq: sim.eq }, elapsed, rate, sim };
+  return { game: { ...game, res: sim.res, eq: sim.eq, readiness: sim.readiness }, elapsed, rate, sim };
 }

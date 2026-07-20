@@ -160,6 +160,25 @@ describe("simulate — doctrine mods", () => {
   });
 });
 
+describe("simulate — reinforcement", () => {
+  it("pours surplus equipment into an under-strength force, raising readiness", () => {
+    // One German infantry at 0% readiness (rifles 40 + artillery 10 for full).
+    const s = { ...mk({ forces: { inf: 1 }, eq: { rifles: 40, artillery: 10 } }), readiness: { inf: 0 } };
+    const r = simulate(s, 1, DE);
+    expect(r.readiness.inf).toBeCloseTo(1); // fully reinforced
+    expect(r.eq.rifles).toBeCloseTo(0); // equipment consumed by the top-up
+    expect(r.eq.artillery).toBeCloseTo(0);
+  });
+
+  it("leaves fully-ready forces (and their stockpile) untouched", () => {
+    const s = { ...mk({ forces: { inf: 1 }, eq: { rifles: 40, artillery: 10 } }), readiness: { inf: 1 } };
+    const r = simulate(s, 1, DE);
+    expect(r.readiness.inf).toBe(1);
+    expect(r.eq.rifles).toBe(40);
+    expect(r.eq.artillery).toBe(10);
+  });
+});
+
 describe("simulate — purity", () => {
   it("does not mutate the input state", () => {
     const s = mk({ owned: { mill: 1, rifleLine: 1 }, res: { steel: 5 } });
