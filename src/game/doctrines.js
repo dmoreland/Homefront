@@ -16,6 +16,10 @@ export function computeMods(purchased = {}) {
     offlineRateAdd: 0,
     startBonus: {},
     tapMult: 1,
+    // Dims also produced by National Focus (shared bundle shape; see game/focus.js):
+    manpowerMult: 1, // multiplies manpower generation
+    theatreRewardMult: 1, // scales theatre victory rewards
+    flatGen: {}, // flat resource/sec added to generation (like passive trickle)
   };
   for (const node of DOCTRINES) {
     if (!purchased[node.id]) continue;

@@ -6,6 +6,7 @@ import { resolveMissions } from "../game/missions.js";
 import { applyOffline, OFFLINE_RATE } from "../game/offline.js";
 import { applyFuelPenalty, isFuelStarved, theatreDuration } from "../game/theatres.js";
 import { computeMods, doctrinePoints, effectiveForceCost, effectiveNeed, totalVictory } from "../game/doctrines.js";
+import { computeFocusMods, focusAvailable, mergeMods, resolveFocus } from "../game/focus.js";
 import { attritionMult, committedReadiness, failureChance, mobiliseCost, mobiliseReadiness, poolReadiness } from "../game/forces.js";
 import { canAfford, costOf } from "../game/economy.js";
 import { saveStore } from "../game/saveStore.js";
@@ -41,7 +42,12 @@ export function useGameEngine() {
   gameRef.current = game;
 
   const nation = getNation(game.nationId);
-  const mods = useMemo(() => computeMods(doctrines.purchased), [doctrines]);
+  // Effective mods = permanent doctrines (cross-run) folded with the completed
+  // National Focus bonuses (this run). Recomputes as focuses complete.
+  const mods = useMemo(
+    () => mergeMods(computeMods(doctrines.purchased), computeFocusMods(nation, game.focus?.done)),
+    [doctrines, nation, game.focus?.done],
+  );
   const modsRef = useRef(mods);
   modsRef.current = mods;
 
@@ -70,7 +76,12 @@ export function useGameEngine() {
         let g = { ...FRESH, ...save };
         const { game: resolved, completed } = resolveMissions(g, Date.now());
         g = resolved;
-        const off = applyOffline(g, save.savedAt, Date.now(), savedNation, { mods: computeMods(doc.purchased) });
+        // Complete any National Focus that finished while away.
+        const rf = resolveFocus(g, savedNation, Date.now());
+        g = rf.game;
+        if (rf.completed) say(`📋 Focus complete: ${rf.completed.name}`, 5000);
+        const offMods = mergeMods(computeMods(doc.purchased), computeFocusMods(savedNation, g.focus?.done));
+        const off = applyOffline(g, save.savedAt, Date.now(), savedNation, { mods: offMods });
         if (off.sim) {
           g = off.game;
           say(`🏭 The home front kept working: +${fmt(off.sim.gen.steel * off.elapsed * off.rate)} steel while you were away`, 5000);
@@ -93,13 +104,16 @@ export function useGameEngine() {
         const advanced = { ...g, res: r.res, eq: r.eq, readiness: r.readiness };
         // F15: oil deficit slows active air/naval operations.
         advanced.missions = applyFuelPenalty(advanced.missions, n, isFuelStarved(r.res, r.net), TICK_DT);
-        const { game: next, completed } = resolveMissions(advanced, Date.now());
+        const { game: withMissions, completed } = resolveMissions(advanced, Date.now());
         for (const m of completed) {
           const t = n.theatres.find((t) => t.id === m.theatre);
           const name = t ? t.name : "the field";
           if (m.willFail) setTimeout(() => say(`💥 Defeat in ${name} — under-equipped forces broke and took losses`, 5000), 0);
           else setTimeout(() => say(`🎖️ Victory in the ${name}! +${m.stage} War Score`), 0);
         }
+        // Complete the active National Focus if its timer has elapsed.
+        const { game: next, completed: focusDone } = resolveFocus(withMissions, n, Date.now());
+        if (focusDone) setTimeout(() => say(`📋 Focus complete: ${focusDone.name}`), 0);
         return next;
       });
     }, TICK_MS);
@@ -133,9 +147,18 @@ export function useGameEngine() {
   const tap = useCallback(() => setGame((g) => {
     const n = getNation(g.nationId);
     if (!n) return g;
-    const shift = n.upgrades.find((u) => u.tapMult && g.upgrades[u.id]);
-    const yielded = (n.tapBase || 2) * (shift ? shift.tapMult : 1) * modsRef.current.tapMult;
+    // Tap strength comes from mods.tapMult (War Footing focus + any tap doctrine).
+    const yielded = (n.tapBase || 2) * modsRef.current.tapMult;
     return { ...g, res: { ...g.res, steel: g.res.steel + yielded }, taps: g.taps + 1 };
+  }), []);
+
+  // Begin a National Focus — one at a time, prerequisites met. It completes on a
+  // timer (resolveFocus in the tick/load) and applies its bonus for the run.
+  const startFocus = useCallback((f) => setGame((g) => {
+    const n = getNation(g.nationId);
+    if (!n) return g;
+    if (!focusAvailable(f, g.focus)) return g;
+    return { ...g, focus: { ...g.focus, active: { id: f.id, endsAt: Date.now() + f.time * 1000 } } };
   }), []);
 
   const buyGen = useCallback((item) => setGame((g) => {
@@ -242,6 +265,6 @@ export function useGameEngine() {
 
   return {
     game, nation, sim, now, toast, mods, doctrines, metaScreen, canPrestige, prestigeAward, fuelStarved,
-    actions: { selectNation, tap, buyGen, recruit, mobilise, buyUpgrade, launch, reset, prestige, buyDoctrine, openDoctrines, closeDoctrines },
+    actions: { selectNation, tap, buyGen, recruit, mobilise, buyUpgrade, launch, startFocus, reset, prestige, buyDoctrine, openDoctrines, closeDoctrines },
   };
 }

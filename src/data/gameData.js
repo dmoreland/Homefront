@@ -33,4 +33,5 @@ export const FRESH = {
   res: { steel: 0, alu: 0, oil: 0, rubber: 0, manpower: 0 },
   eq: { rifles: 0, artillery: 0, tanks: 0, fighters: 0, ships: 0 },
   owned: {}, upgrades: {}, forces: {}, readiness: {}, stages: {}, missions: [], warScore: 0, warTotal: 0, taps: 0,
+  focus: { active: null, done: {} }, // National Focus: one timed focus active at a time; done ids persist for the run
 };

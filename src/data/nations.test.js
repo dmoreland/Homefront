@@ -62,10 +62,32 @@ describe("nation configs", () => {
     }
   });
 
+  it("every nation has a focus tree with unique ids and valid prerequisites", () => {
+    for (const n of NATIONS) {
+      expect(n.focuses.length).toBeGreaterThan(0);
+      const ids = n.focuses.map((f) => f.id);
+      expect(new Set(ids).size).toBe(ids.length); // unique within the nation
+      const idSet = new Set(ids);
+      for (const f of n.focuses) {
+        expect(typeof f.time).toBe("number");
+        expect(f.time).toBeGreaterThan(0);
+        expect(f.effect && f.effect.kind).toBeTruthy();
+        for (const r of [].concat(f.req || [])) expect(idSet.has(r)).toBe(true); // prereq exists
+      }
+    }
+  });
+
+  it("no War Cabinet upgrade grants steel output — industry scaling lives in the focus tree", () => {
+    for (const n of NATIONS) {
+      for (const u of n.upgrades) expect(u.outputMult).toBeUndefined();
+    }
+  });
+
   it("newGame seeds a fresh campaign for the nation", () => {
     const g = newGame(getNation("germany"));
     expect(g.nationId).toBe("germany");
     expect(g.warScore).toBe(0);
     expect(g.missions).toEqual([]);
+    expect(g.focus).toEqual({ active: null, done: {} });
   });
 });
