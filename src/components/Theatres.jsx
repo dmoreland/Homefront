@@ -1,40 +1,55 @@
 import { theatreDuration } from "../game/theatres.js";
 import { effectiveNeed } from "../game/doctrines.js";
 import { attritionMult, committedReadiness, failureChance } from "../game/forces.js";
-import { GIcon, THEATRE_ICON } from "../ui/Icon.jsx";
+import { assaultStrength, defenseStrength, offensiveOutcome, forceIds } from "../game/pressure.js";
+import { GIcon, THEATRE_ICON, FORCE_ICON } from "../ui/Icon.jsx";
 import { S } from "../ui/styles.js";
 
-// Timed operations for the active nation: commit forces, watch the progress
-// bar, collect the victory. `now` drives the countdown; the engine resolves
-// completion on the tick. Requirements/durations reflect doctrine mods, and the
-// readiness of the committed forces (attrition slows ops; low readiness risks defeat).
-export function Theatres({ nation, stages, missions, forces, readiness, upgrades, mods, fuelStarved, now, onLaunch }) {
+// Timed operations for the active nation: commit forces, watch the progress bar,
+// collect the victory. `now` drives countdowns; the engine resolves completion on
+// the tick. Once a front is engaged (≥1 victory) the enemy pushes back: a
+// pressure bar climbs toward an offensive, and you garrison idle forces to defend
+// it — the garrison's strength vs the assault decides repel / contain / overrun.
+export function Theatres({ nation, stages, missions, forces, readiness, garrison, pressure, upgrades, mods, fuelStarved, now, onLaunch, onGarrison, onWithdraw }) {
   const forceName = (id) => nation.forces.find((f) => f.id === id)?.name || id;
+  const owned = nation.forces.filter((f) => (forces[f.id] || 0) > 0 || Object.values(garrison).some((g) => g?.[f.id]));
   return (
     <>
       <h2 style={S.h2}>Theatres of War</h2>
       {nation.theatres.map((t) => {
-        const stage = (stages[t.id] || 0) + 1;
+        const won = stages[t.id] || 0;
+        const stage = won + 1;
         const need = effectiveNeed(t, stage, mods);
         const active = missions.find((m) => m.theatre === t.id);
         const ready = !active && Object.keys(need).every((k) => (forces[k] || 0) >= need[k]);
         const needStr = Object.entries(need).map(([k, v]) => `${v}× ${forceName(k)}`).join(" + ");
-        // Pre-launch: readiness of the forces we'd commit, and the resulting defeat risk.
         const projReady = ready ? committedReadiness(need, readiness) : 1;
         const projRisk = ready ? failureChance(projReady, nation) : 0;
         let pct = 0;
         if (active) {
-          // endsAt already bakes in attrition, so match the total window here.
           const total = theatreDuration(t, active.stage, nation, upgrades, mods) * attritionMult(active.readiness ?? 1, nation) * 1000;
           pct = Math.min(100, Math.max(0, (1 - (active.endsAt - now) / total) * 100));
         }
+
+        // Enemy pressure & garrison — only on engaged fronts (≥1 victory won).
+        const gr = garrison[t.id] || {};
+        const grCount = forceIds.reduce((s, fid) => s + (gr[fid] || 0), 0);
+        const engaged = won >= 1;
+        const press = pressure[t.id] || 0;
+        const defense = defenseStrength(gr, readiness, nation);
+        const assault = assaultStrength(won);
+        const outcome = offensiveOutcome(defense, assault); // what an offensive would do right now
+        const holdColor = outcome === "repelled" ? "#6FBF73" : outcome === "contained" ? "#D9B14B" : "#E06A5A";
+        const holdLabel = outcome === "repelled" ? "Will hold" : outcome === "contained" ? "Held at a cost" : "Will be overrun";
+
         return (
-          <div key={t.id} style={{ ...S.panel, borderColor: active ? "#D9B14B" : "#33506E" }}>
+          <div key={t.id} style={{ ...S.panel, borderColor: active ? "#D9B14B" : press > 0.66 ? "#7A2E2E" : "#33506E" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <strong style={{ display: "flex", alignItems: "center", gap: 9 }}><GIcon name={THEATRE_ICON[t.icon] || "battle"} size={20} color="#D9B14B" /> {t.name}</strong>
-              <span style={{ fontSize: 11, color: "#D9B14B" }}>{(stages[t.id] || 0)} victories</span>
+              <span style={{ fontSize: 11, color: "#D9B14B" }}>{won} victories</span>
             </div>
             <div style={{ fontSize: 12, color: "#7E96AC", margin: "4px 0" }}>{t.rewardText}</div>
+
             {active ? (
               <div>
                 <div style={{ background: "#16222E", borderRadius: 6, height: 8, overflow: "hidden", margin: "6px 0 4px" }}>
@@ -64,6 +79,36 @@ export function Theatres({ nation, stages, missions, forces, readiness, upgrades
                   </div>
                 )}
               </>
+            )}
+
+            {/* Enemy pressure + garrison (engaged fronts only) */}
+            {engaged && (
+              <div style={{ marginTop: 8, borderTop: "1px solid #2A3B4E", paddingTop: 7 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: press > 0.66 ? "#E06A5A" : "#9FB4C7", marginBottom: 3 }}>
+                  <span>{press > 0.85 ? "⚠️ Enemy offensive imminent" : "Enemy pressure"}</span>
+                  <span style={{ color: holdColor, fontWeight: 700 }}>{grCount > 0 ? holdLabel : "Undefended"}</span>
+                </div>
+                <div style={{ background: "#16222E", borderRadius: 6, height: 6, overflow: "hidden", marginBottom: 6 }}>
+                  <div style={{ width: `${Math.min(100, press * 100)}%`, height: "100%", background: press > 0.66 ? "#C2453A" : "#8A5A3A" }} />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11, color: "#7E96AC" }}>Garrison:</span>
+                  {owned.map((f) => {
+                    const inG = gr[f.id] || 0;
+                    const canAdd = (forces[f.id] || 0) > 0;
+                    return (
+                      <span key={f.id} style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#1B2A3B", borderRadius: 6, padding: "2px 4px" }}>
+                        <GIcon name={FORCE_ICON[f.id]} size={13} color="#C7D2DC" />
+                        <button onClick={() => onWithdraw(t.id, f.id)} disabled={inG < 1} title={`Withdraw ${forceName(f.id)}`}
+                          style={{ border: "none", background: "none", color: inG > 0 ? "#E0A050" : "#3E5169", fontWeight: 800, cursor: inG > 0 ? "pointer" : "default", padding: "0 3px", fontSize: 13 }}>−</button>
+                        <span style={{ fontSize: 12, color: inG > 0 ? "#EDE6D3" : "#5E7183", minWidth: 8, textAlign: "center" }}>{inG}</span>
+                        <button onClick={() => onGarrison(t.id, f.id)} disabled={!canAdd} title={`Station ${forceName(f.id)}`}
+                          style={{ border: "none", background: "none", color: canAdd ? "#6FBF73" : "#3E5169", fontWeight: 800, cursor: canAdd ? "pointer" : "default", padding: "0 3px", fontSize: 13 }}>+</button>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         );
