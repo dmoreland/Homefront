@@ -34,4 +34,6 @@ export const FRESH = {
   eq: { rifles: 0, artillery: 0, tanks: 0, fighters: 0, ships: 0 },
   owned: {}, upgrades: {}, forces: {}, readiness: {}, stages: {}, missions: [], warScore: 0, warTotal: 0, taps: 0,
   focus: { active: null, done: {} }, // National Focus: one timed focus active at a time; done ids persist for the run
+  pressure: {}, // { [theatreId]: 0..1 } enemy pressure on engaged fronts (stages>=1)
+  garrison: {}, // { [theatreId]: { inf, arm, air, fleet } } forces set aside to defend a front
 };

@@ -60,6 +60,12 @@ describe("resolveMissions", () => {
     expect(game.missions).toEqual([]);
   });
 
+  it("a victory resets that front's enemy pressure", () => {
+    const g = { ...base(), pressure: { bob: 0.8 }, missions: [{ theatre: "bob", stage: 1, forces: { air: 2 }, endsAt: 1000 }] };
+    const { game } = resolveMissions(g, 2000);
+    expect(game.pressure.bob).toBe(0); // pushing the front back relieves pressure
+  });
+
   it("blends returning units back at the readiness they deployed with", () => {
     // 2 units stayed home and were reinforced to 1.0 while 3 were away at 0.3.
     const g = {

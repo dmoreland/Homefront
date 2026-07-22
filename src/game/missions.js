@@ -17,6 +17,7 @@ export function resolveMissions(game, nowMs) {
   const stages = { ...game.stages };
   const forces = { ...game.forces };
   const readiness = { ...game.readiness };
+  const pressure = { ...game.pressure };
   let warScore = game.warScore;
   let warTotal = game.warTotal || 0; // cumulative earned this run — drives prestige payout
   // Blend `ret` returning units (at readiness rr) of force k back into the pool.
@@ -33,10 +34,11 @@ export function resolveMissions(game, nowMs) {
       continue;
     }
     stages[m.theatre] = (stages[m.theatre] || 0) + 1;
+    pressure[m.theatre] = 0; // a victory pushes the enemy back — pressure relief
     warScore += m.stage;
     warTotal += m.stage;
     for (const k in m.forces) returnForce(k, m.forces[k], rr[k] ?? m.readiness ?? 1);
   }
   const missions = (game.missions || []).filter((m) => m.endsAt > nowMs);
-  return { game: { ...game, stages, forces, readiness, warScore, warTotal, missions }, completed: done };
+  return { game: { ...game, stages, forces, readiness, pressure, warScore, warTotal, missions }, completed: done };
 }

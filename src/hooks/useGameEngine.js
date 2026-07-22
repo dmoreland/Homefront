@@ -7,6 +7,7 @@ import { applyOffline, OFFLINE_RATE } from "../game/offline.js";
 import { applyFuelPenalty, isFuelStarved, theatreDuration } from "../game/theatres.js";
 import { computeMods, doctrinePoints, effectiveForceCost, effectiveNeed, totalVictory } from "../game/doctrines.js";
 import { computeFocusMods, focusAvailable, mergeMods, resolveFocus } from "../game/focus.js";
+import { stepPressure } from "../game/pressure.js";
 import { attritionMult, committedReadiness, failureChance, mobiliseCost, mobiliseReadiness, poolReadiness } from "../game/forces.js";
 import { canAfford, costOf } from "../game/economy.js";
 import { saveStore } from "../game/saveStore.js";
@@ -87,6 +88,10 @@ export function useGameEngine() {
           say(`🏭 The home front kept working: +${fmt(off.sim.gen.steel * off.elapsed * off.rate)} steel while you were away`, 5000);
         }
         if (completed.length) say(`🎖️ ${completed.length} theatre victor${completed.length > 1 ? "ies" : "y"} while you were away!`, 5000);
+        // Enemy pressure while away — at most one offensive per front (offline-safe).
+        const sp = stepPressure(g, savedNation, off.elapsed || 0);
+        g = sp.game;
+        if (sp.events.length) say(`💥 ${sp.events.length} enemy offensive${sp.events.length > 1 ? "s" : ""} struck your fronts while you were away`, 6000);
         setGame(g);
       }
       loadedRef.current = true;
@@ -112,8 +117,18 @@ export function useGameEngine() {
           else setTimeout(() => say(`🎖️ Victory in the ${name}! +${m.stage} War Score`), 0);
         }
         // Complete the active National Focus if its timer has elapsed.
-        const { game: next, completed: focusDone } = resolveFocus(withMissions, n, Date.now());
+        const { game: afterFocus, completed: focusDone } = resolveFocus(withMissions, n, Date.now());
         if (focusDone) setTimeout(() => say(`📋 Focus complete: ${focusDone.name}`), 0);
+        // Enemy pressure builds on engaged fronts; resolve offensives that land.
+        const { game: next, events } = stepPressure(afterFocus, n, TICK_DT);
+        for (const e of events) {
+          const t = n.theatres.find((t) => t.id === e.theatre);
+          const name = t ? t.name : "the front";
+          const msg = e.outcome === "repelled" ? `🛡️ Enemy offensive in ${name} repelled by the garrison`
+            : e.outcome === "contained" ? `💥 Enemy offensive in ${name} — supplies raided, garrison mauled`
+            : `☠️ ${name} overrun — ground lost and stores raided`;
+          setTimeout(() => say(msg, 5000), 0);
+        }
         return next;
       });
     }, TICK_MS);
@@ -227,6 +242,29 @@ export function useGameEngine() {
     return { ...g, forces, missions: [...g.missions, { theatre: t.id, stage, forces: need, readiness, forceReadiness, willFail, endsAt: Date.now() + dur * 1000 }] };
   }), []);
 
+  // Station one idle unit of a force type to defend a front (slows its pressure
+  // and mans the garrison when an offensive lands). Moves it out of the free pool.
+  const garrison = useCallback((theatreId, fid) => setGame((g) => {
+    if ((g.forces[fid] || 0) < 1) return g;
+    const gr = g.garrison[theatreId] || {};
+    return {
+      ...g,
+      forces: { ...g.forces, [fid]: g.forces[fid] - 1 },
+      garrison: { ...g.garrison, [theatreId]: { ...gr, [fid]: (gr[fid] || 0) + 1 } },
+    };
+  }), []);
+
+  // Pull one garrisoned unit back into the free pool (available to attack again).
+  const withdraw = useCallback((theatreId, fid) => setGame((g) => {
+    const gr = g.garrison[theatreId] || {};
+    if ((gr[fid] || 0) < 1) return g;
+    return {
+      ...g,
+      forces: { ...g.forces, [fid]: (g.forces[fid] || 0) + 1 },
+      garrison: { ...g.garrison, [theatreId]: { ...gr, [fid]: gr[fid] - 1 } },
+    };
+  }), []);
+
   const reset = useCallback(async () => {
     await saveStore.clear();
     setGame(FRESH); // back to the nation picker (doctrines are kept)
@@ -265,6 +303,6 @@ export function useGameEngine() {
 
   return {
     game, nation, sim, now, toast, mods, doctrines, metaScreen, canPrestige, prestigeAward, fuelStarved,
-    actions: { selectNation, tap, buyGen, recruit, mobilise, buyUpgrade, launch, startFocus, reset, prestige, buyDoctrine, openDoctrines, closeDoctrines },
+    actions: { selectNation, tap, buyGen, recruit, mobilise, buyUpgrade, launch, garrison, withdraw, startFocus, reset, prestige, buyDoctrine, openDoctrines, closeDoctrines },
   };
 }

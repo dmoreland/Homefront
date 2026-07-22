@@ -89,5 +89,7 @@ describe("nation configs", () => {
     expect(g.warScore).toBe(0);
     expect(g.missions).toEqual([]);
     expect(g.focus).toEqual({ active: null, done: {} });
+    expect(g.pressure).toEqual({});
+    expect(g.garrison).toEqual({});
   });
 });

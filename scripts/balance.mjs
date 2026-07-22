@@ -17,6 +17,7 @@ import { costOf, canAfford } from "../src/game/economy.js";
 import { applyFuelPenalty, isFuelStarved, theatreDuration } from "../src/game/theatres.js";
 import { computeMods, doctrinePoints, effectiveForceCost, effectiveNeed, totalVictory } from "../src/game/doctrines.js";
 import { computeFocusMods, focusAvailable, mergeMods, resolveFocus } from "../src/game/focus.js";
+import { assaultStrength, defenseStrength, forceIds, stepPressure } from "../src/game/pressure.js";
 
 const DT = 1; // 1-second steps
 const MAX_SECONDS = 6 * 3600; // give up after 6h of sim time
@@ -76,6 +77,24 @@ function greedy(g, nation, mods, t) {
         for (const k in need) forces[k] -= need[k];
         const dur = theatreDuration(th, stage, nation, g.upgrades, mods);
         g = { ...g, forces, missions: [...g.missions, { theatre: th.id, stage, forces: need, endsAt: (t + dur) * 1000 }] };
+        acted = true;
+      }
+    }
+
+    // 1b. Garrison every engaged front we're not actively assaulting, so enemy
+    // pressure can't roll back won stages: completed fronts held to repel, fronts
+    // still in progress held to "contained" (no rollback). Actively-assaulted
+    // fronts need no garrison — a victory resets their pressure.
+    for (const th of nation.theatres) {
+      const won = g.stages[th.id] || 0;
+      if (won < 1 || g.missions.some((m) => m.theatre === th.id)) continue;
+      const target = assaultStrength(won); // garrison to repel — stable (only ~10% losses)
+      const types = Object.keys(effectiveNeed(th, 1, mods)); // defend a front with its own troops
+      while (defenseStrength(g.garrison[th.id], g.readiness, nation) < target) {
+        const fid = types.find((k) => (g.forces[k] || 0) > 0) || forceIds.find((k) => (g.forces[k] || 0) > 0);
+        if (!fid) break;
+        const gr = g.garrison[th.id] || {};
+        g = { ...g, forces: { ...g.forces, [fid]: g.forces[fid] - 1 }, garrison: { ...g.garrison, [th.id]: { ...gr, [fid]: (gr[fid] || 0) + 1 } } };
         acted = true;
       }
     }
@@ -147,6 +166,7 @@ export function runNation(nation) {
     for (const m of rm.completed) mark(`${m.theatre} S${m.stage}`, t);
 
     g = resolveFocus(g, nation, t * 1000).game; // complete the active focus on its timer
+    g = stepPressure(g, nation, DT).game; // enemy pressure builds on engaged fronts
 
     g = greedy(g, nation, mods, t);
 
